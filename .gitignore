@@ -12,3 +12,5 @@ KVClientTest/KVClienttest.map
 KVClientTest/KVHttpClient.dcu
 
 *.dcu
+
+__recovery/

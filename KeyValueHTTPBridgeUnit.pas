@@ -104,15 +104,19 @@ function TKeyValueHTTPBridge.ChangesToJSON(const Changes: TArray<TChangeRecord>)
 var
   Doc: TDocVariantData;
   Change: TChangeRecord;
+  Value: Variant;
 begin
   Doc.InitArray([]);
   for Change in Changes do
-    Doc.AddItem(_Obj([
-      'id', Change.ChangeId,
-      'key', Change.Key,
-      'value', Change.Value,
-      'timestamp', DateToISO8601(Change.Timestamp, False)
-    ]));
+  begin
+    Value := Change.Value;
+      Doc.AddItem(_Obj([
+        'id', Change.ChangeId,
+        'key', Change.Key,
+        'value', Value,
+        'timestamp', DateToISO8601(Change.Timestamp, False)
+      ]));
+  end;
   Result := Doc.ToJSON;
 end;
 

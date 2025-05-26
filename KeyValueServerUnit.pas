@@ -32,6 +32,7 @@ type
 
     function GetValue(const Key: string; out Value: Variant): Boolean;
     procedure SetValue(const Key: string; const Value: Variant; const SourceId: string = '');
+    procedure SetValues(const Updates: array of TPair<string, Variant>; const SourceId: string = '');
     procedure GetAll(var Output: TArray<string>);
     procedure GetChangesSince(LastId: Int64; const SourceId: string; out Changes: TArray<TChangeRecord>);
 
@@ -89,6 +90,34 @@ begin
   end;
   if Changed and Assigned(FOnValueChanged) then
     FOnValueChanged(Self, Key, Value, SourceId);
+end;
+
+procedure TKeyValueServer.SetValues(const Updates: array of TPair<string, Variant>; const SourceId: string = '');
+var
+  i: Integer;
+  Changed: Boolean;
+  OldValue: Variant;
+begin
+  if Length(Updates) = 0 then
+    Exit;
+
+  FDataLock.Acquire;
+  try
+    for i := 0 to High(Updates) do
+    begin
+      Changed := (not FData.ContainsKey(Updates[i].Key)) or (FData[Updates[i].Key] <> Updates[i].Value);
+      FData.AddOrSetValue(Updates[i].Key, Updates[i].Value);
+      if Changed then
+        AddChange(Updates[i].Key, Updates[i].Value, SourceId);
+    end;
+  finally
+    FDataLock.Release;
+  end;
+
+  // Notify changes outside the lock
+  if Assigned(FOnValueChanged) then
+    for i := 0 to High(Updates) do
+      FOnValueChanged(Self, Updates[i].Key, Updates[i].Value, SourceId);
 end;
 
 procedure TKeyValueServer.GetAll(var Output: TArray<string>);
