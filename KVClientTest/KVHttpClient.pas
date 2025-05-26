@@ -3,7 +3,7 @@ unit KVHttpClient;
 interface
 
 uses
-  System.Classes, System.SysUtils, IdHTTP, IdComponent, IdStack, System.JSON, NetEncoding;
+  System.Classes, System.SysUtils, IdHTTP, IdComponent, IdStack, IdExceptionCore, System.JSON, NetEncoding;
 
 type
   TChangeItem = record
@@ -85,7 +85,12 @@ end;
 procedure TKVHttpClient.CancelLongPoll;
 begin
   if Assigned(FIdHTTP_LongPoll) then
-    FIdHTTP_LongPoll.Disconnect;
+    try
+      FIdHTTP_LongPoll.Disconnect;
+    except
+      on E: EIdNotConnected do
+        ; // Ignore - already disconnected
+    end;
 end;
 
 // Returns True if changes received, False if timeout (no new data)

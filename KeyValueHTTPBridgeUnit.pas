@@ -4,7 +4,7 @@ interface
 
 uses
   System.Classes, System.SysUtils, IdCustomHTTPServer,
-  HTTPServerUnit, KeyValueServerUnit, System.SyncObjs, System.Generics.Collections;
+  HTTPServerUnit, KeyValueServerUnit, IdStack, System.SyncObjs, System.Generics.Collections;
 
 type
   TKeyValueHTTPBridge = class
@@ -55,6 +55,7 @@ end;
 
 destructor TKeyValueHTTPBridge.Destroy;
 begin
+  Stop; // Ensure server is stopped
   FLongPollContexts.Free;
   FHTTP.Free;
   inherited;
@@ -66,8 +67,35 @@ begin
 end;
 
 procedure TKeyValueHTTPBridge.Stop;
+var
+  L: TList;
+  i: Integer;
+  Ctx: TLongPollContext;
 begin
-  FHTTP.Active := False;
+  // First notify all long polling clients to disconnect
+  L := FLongPollContexts.LockList;
+  try
+    for i := 0 to L.Count-1 do
+    begin
+      Ctx := TLongPollContext(L[i]);
+      Ctx.WaitEvent.SetEvent;
+    end;
+  finally
+    FLongPollContexts.UnlockList;
+  end;
+
+  // Give clients a moment to disconnect
+  Sleep(100);
+
+  // Now stop the server
+  try
+    FHTTP.Active := False;
+  except
+    on E: EAbort do
+      ; // Ignore abort during shutdown
+    on E: EIdSocketError do
+      ; // Ignore socket errors during shutdown
+  end;
 end;
 
 // JSON encode array of changes

@@ -4,3 +4,9 @@ Win32/
 __history/
 
 *.local
+
+KVClientTest/KVClienttest.exe
+
+KVClientTest/KVClienttest.map
+
+KVClientTest/KVHttpClient.dcu
