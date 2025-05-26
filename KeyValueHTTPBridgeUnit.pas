@@ -18,7 +18,7 @@ type
     procedure HTTPPutHandler(Sender: TObject; const URL: string; const Params: TStrings;
     const Body: string; const Json: variant; const Args: THTTPCommandArgs; var ResponseText: string; var ResponseCode: Integer);
     procedure AddLongPoll(LastId: Int64; const ClientId: string; var ResponseText: string; var ResponseCode: Integer);
-    procedure HandleValueChanged(Sender: TObject; const Key, Value: string; const SourceId: string);
+    procedure HandleValueChanged(Sender: TObject; const Key: string; const Value: variant; const SourceId: string);
     procedure NotifyLongPoll;
     function ChangesToJSON(const Changes: TArray<TChangeRecord>): string;
   public
@@ -119,7 +119,8 @@ end;
 procedure TKeyValueHTTPBridge.HTTPGetHandler(Sender: TObject; const URL: string; const Params: TStrings;
     const Body: string; const Json: variant; const Args: THTTPCommandArgs; var ResponseText: string; var ResponseCode: Integer);
 var
-  Key, Value: string;
+  Key: string;
+  Value: Variant;
   LastId: Int64;
   Changes: TArray<TChangeRecord>;
   ClientId: string;
@@ -186,15 +187,25 @@ end;
 procedure TKeyValueHTTPBridge.HTTPPutHandler(Sender: TObject; const URL: string; const Params: TStrings;
     const Body: string; const Json: variant; const Args: THTTPCommandArgs; var ResponseText: string; var ResponseCode: Integer);
 var
-  Key, Value: string;
+  Key: string;
+  Value: Variant;
   ClientId: string;
   Guid: TGUID;
   Doc: TDocVariantData;
+  BatchDoc: TDocVariantData;
+  i: Integer;
 begin
+  // Get client ID from header or generate one if not present
+  ClientId := Args.RequestInfo.RawHeaders.Values['X-Client-ID'];
+  if ClientId = '' then
+  begin
+    CreateGUID(Guid);
+    ClientId := GUIDToString(Guid);
+  end;
+
   if SameText(URL, '/data') then
   begin
     Key := Args.RequestInfo.Params.Values['key'];
-    Value := Args.RequestInfo.Params.Values['value'];
     if Key = '' then
     begin
       Doc.InitObject(['error', 'missing key']);
@@ -203,18 +214,41 @@ begin
       Exit;
     end;
 
-    // Get client ID from header or generate one if not present
-    ClientId := Args.RequestInfo.RawHeaders.Values['X-Client-ID'];
-    if ClientId = '' then
-    begin
-      CreateGUID(Guid);
-      ClientId := GUIDToString(Guid);
-    end;
+    // Try to parse value as JSON first
+    if (Json <> null) and (Json <> null) then
+      Value := Json
+    else
+      Value := Args.RequestInfo.Params.Values['value'];
 
     FKV.SetValue(Key, Value, ClientId);
-    Doc.InitObject(['result', 'ok']);
+    Doc.InitObject(['status', 'ok']);
     ResponseText := Doc.ToJSON;
     ResponseCode := 200;
+    Exit;
+  end;
+
+  if SameText(URL, '/batch') then
+  begin
+    BatchDoc.InitJSON(Body);
+    if BatchDoc.Kind = dvArray then
+    begin
+      for i := 0 to BatchDoc.Count-1 do
+      begin
+        Key := BatchDoc.Values[i].S['key'];
+        Value := BatchDoc.Values[i].Values['value'];
+        if Key <> '' then
+          FKV.SetValue(Key, Value, ClientId);
+      end;
+      Doc.InitObject(['status', 'ok']);
+      ResponseText := Doc.ToJSON;
+      ResponseCode := 200;
+    end
+    else
+    begin
+      Doc.InitObject(['error', 'invalid batch format']);
+      ResponseText := Doc.ToJSON;
+      ResponseCode := 400;
+    end;
     Exit;
   end;
 
@@ -263,7 +297,7 @@ begin
 end;
 
 // Called on any change (manual, HTTP, etc)
-procedure TKeyValueHTTPBridge.HandleValueChanged(Sender: TObject; const Key, Value: string; const SourceId: string);
+procedure TKeyValueHTTPBridge.HandleValueChanged(Sender: TObject; const Key: string; const Value: variant; const SourceId: string);
 begin
   NotifyLongPoll;
 end;

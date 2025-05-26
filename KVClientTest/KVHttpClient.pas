@@ -4,13 +4,13 @@ interface
 
 uses
   System.Classes, System.SysUtils, IdHTTP, IdComponent, IdStack, IdExceptionCore, System.JSON, NetEncoding,
-  SynCommons;
+  SynCommons, Generics.Collections, System.Variants;
 
 type
   TChangeItem = record
     Id: Int64;
     Key: string;
-    Value: string;
+    Value: Variant;
     Timestamp: string;
   end;
 
@@ -25,9 +25,9 @@ type
     constructor Create(const BaseUrl: string);
     destructor Destroy; override;
 
-    function GetValue(const Key: string): string;
-    procedure PutValue(const Key, Value: string);
-    procedure PutValues(const KeyValues: array of TPair<string, string>);
+    function GetValue(const Key: string): Variant;
+    procedure PutValue(const Key: string; const Value: Variant);
+    procedure PutValues(const KeyValues: array of TPair<string, Variant>);
     function LongPoll(SinceId: Int64; out Changes: TArray<TChangeItem>): Boolean;
     procedure CancelLongPoll;
 
@@ -63,34 +63,40 @@ procedure TKVHttpClient.AddClientIdHeader(HTTP: TIdHTTP);
 begin
   if FClientId <> '' then
     HTTP.Request.CustomHeaders.AddValue('X-Client-ID', FClientId);
+  HTTP.Request.ContentType := 'application/json';
 end;
 
-function TKVHttpClient.GetValue(const Key: string): string;
+function TKVHttpClient.GetValue(const Key: string): Variant;
 var
   Doc: TDocVariantData;
 begin
   AddClientIdHeader(FIdHTTP_LongPoll);
   Doc.InitJSON(FIdHTTP_LongPoll.Get(FBaseUrl + '/data?key=' + TNetEncoding.URL.Encode(Key)));
-  Result := Doc.S['value'];
+  Result := Doc.GetValueOrNull('value');
 end;
 
-procedure TKVHttpClient.PutValue(const Key, Value: string);
+procedure TKVHttpClient.PutValue(const Key: string; const Value: Variant);
 var
+  Doc: TDocVariantData;
   Source: TStringStream;
 begin
   AddClientIdHeader(FIdHTTP);
-  Source := TStringStream.Create(Value, TEncoding.UTF8);
+  Doc.InitObject([
+    'key', Key,
+    'value', Value
+  ]);
+  Source := TStringStream.Create(Doc.ToJSON, TEncoding.UTF8);
   try
-    FIdHTTP.Post(FBaseUrl + '/data?key=' + TNetEncoding.URL.Encode(Key) + '&value=' + TNetEncoding.URL.Encode(Value), Source);
+    FIdHTTP.Post(FBaseUrl + '/data', Source);
   finally
     Source.Free;
   end;
 end;
 
-procedure TKVHttpClient.PutValues(const KeyValues: array of TPair<string, string>);
+procedure TKVHttpClient.PutValues(const KeyValues: array of TPair<string, Variant>);
 var
   Doc: TDocVariantData;
-  Pair: TPair<string, string>;
+  Pair: TPair<string, Variant>;
   Source: TStringStream;
 begin
   AddClientIdHeader(FIdHTTP);
@@ -139,7 +145,7 @@ begin
         var Item := TDocVariantData(Doc.Values[i]);
         Changes[i].Id := Item.I['id'];
         Changes[i].Key := Item.S['key'];
-        Changes[i].Value := Item.S['value'];
+        Changes[i].Value := Item.GetValueOrNull('value');
         Changes[i].Timestamp := Item.S['timestamp'];
       end;
       Result := True;

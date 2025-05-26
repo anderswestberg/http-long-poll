@@ -10,3 +10,5 @@ KVClientTest/KVClienttest.exe
 KVClientTest/KVClienttest.map
 
 KVClientTest/KVHttpClient.dcu
+
+*.dcu

@@ -3,40 +3,40 @@ unit KeyValueServerUnit;
 interface
 
 uses
-  System.SysUtils, System.Classes, System.Generics.Collections, System.SyncObjs;
+  System.SysUtils, System.Classes, System.Generics.Collections, System.SyncObjs, System.Variants;
 
 type
   TChangeRecord = class
     ChangeId: Int64;
     Timestamp: TDateTime;
     Key: string;
-    Value: string;
+    Value: Variant;
     SourceId: string;
   end;
 
-  TKeyValueChangedEvent = procedure(Sender: TObject; const Key, Value: string; const SourceId: string) of object;
+  TKeyValueChangedEvent = procedure(Sender: TObject; const Key: string; const Value: Variant; const SourceId: string) of object;
 
   TKeyValueServer = class
   private
-    FData: TDictionary<string, string>;
+    FData: TDictionary<string, Variant>;
     FDataLock: TCriticalSection;
     FOnValueChanged: TKeyValueChangedEvent;
     // Change log
     FChangeLog: TList<TChangeRecord>;
     FNextChangeId: Int64;
-    procedure AddChange(const Key, Value: string; const SourceId: string);
+    procedure AddChange(const Key: string; const Value: Variant; const SourceId: string);
     procedure PruneChangeLog;
   public
     constructor Create;
     destructor Destroy; override;
 
-    function GetValue(const Key: string; out Value: string): Boolean;
-    procedure SetValue(const Key, Value: string; const SourceId: string = '');
+    function GetValue(const Key: string; out Value: Variant): Boolean;
+    procedure SetValue(const Key: string; const Value: Variant; const SourceId: string = '');
     procedure GetAll(var Output: TArray<string>);
     procedure GetChangesSince(LastId: Int64; const SourceId: string; out Changes: TArray<TChangeRecord>);
 
     property OnValueChanged: TKeyValueChangedEvent read FOnValueChanged write FOnValueChanged;
-    property Data: TDictionary<string, string> read FData;
+    property Data: TDictionary<string, Variant> read FData;
     property DataLock: TCriticalSection read FDataLock;
   end;
 
@@ -49,7 +49,7 @@ const
 constructor TKeyValueServer.Create;
 begin
   inherited;
-  FData := TDictionary<string, string>.Create;
+  FData := TDictionary<string, Variant>.Create;
   FDataLock := TCriticalSection.Create;
   FChangeLog := TList<TChangeRecord>.Create;
   FNextChangeId := 1;
@@ -57,14 +57,13 @@ end;
 
 destructor TKeyValueServer.Destroy;
 begin
-  //FChangeLog.OwnsObjects := True;
   FChangeLog.Free;
   FDataLock.Free;
   FData.Free;
   inherited;
 end;
 
-function TKeyValueServer.GetValue(const Key: string; out Value: string): Boolean;
+function TKeyValueServer.GetValue(const Key: string; out Value: Variant): Boolean;
 begin
   FDataLock.Acquire;
   try
@@ -74,9 +73,10 @@ begin
   end;
 end;
 
-procedure TKeyValueServer.SetValue(const Key, Value: string; const SourceId: string = '');
+procedure TKeyValueServer.SetValue(const Key: string; const Value: Variant; const SourceId: string = '');
 var
   Changed: Boolean;
+  OldValue: Variant;
 begin
   FDataLock.Acquire;
   try
@@ -93,14 +93,14 @@ end;
 
 procedure TKeyValueServer.GetAll(var Output: TArray<string>);
 var
-  Pair: TPair<string, string>;
+  Pair: TPair<string, Variant>;
   List: TList<string>;
 begin
   List := TList<string>.Create;
   FDataLock.Acquire;
   try
     for Pair in FData do
-      List.Add(Pair.Key + '=' + Pair.Value);
+      List.Add(Pair.Key + '=' + VarToStr(Pair.Value));
     Output := List.ToArray;
   finally
     FDataLock.Release;
@@ -108,7 +108,7 @@ begin
   end;
 end;
 
-procedure TKeyValueServer.AddChange(const Key, Value: string; const SourceId: string);
+procedure TKeyValueServer.AddChange(const Key: string; const Value: Variant; const SourceId: string);
 var
   Change: TChangeRecord;
 begin
