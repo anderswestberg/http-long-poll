@@ -89,7 +89,7 @@ begin
     Exit;
   end;
   try
-    FClient.PutValue(Trim(EditKey.Text), EditValue.Text);
+    FClient.PostValue(Trim(EditKey.Text), EditValue.Text);
     Log(Format('PUT %s = %s', [Trim(EditKey.Text), EditValue.Text]));
   except
     on E: Exception do

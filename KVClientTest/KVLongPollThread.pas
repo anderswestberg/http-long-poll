@@ -62,14 +62,19 @@ begin
                 FOnUpdate(Batch);
               end);
         end;
-      end;
+      end
+      else
+        Sleep(1000);
     except
       on E: Exception do
+      begin
         if not FStopRequested and Assigned(FOnUpdate) then
           Synchronize(procedure
             begin
               FOnUpdate([]);
             end);
+        Sleep(1000);
+      end;
     end;
     if not FStopRequested then
       Sleep(10);

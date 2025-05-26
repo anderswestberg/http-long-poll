@@ -26,8 +26,8 @@ type
     destructor Destroy; override;
 
     function GetValue(const Key: string): Variant;
-    procedure PutValue(const Key: string; const Value: Variant);
-    procedure PutValues(const KeyValues: array of TPair<string, Variant>);
+    procedure PostValue(const Key: string; const Value: Variant);
+    procedure PostValues(const KeyValues: array of TPair<string, Variant>);
     function LongPoll(SinceId: Int64; out Changes: TArray<TChangeItem>): Boolean;
     procedure CancelLongPoll;
 
@@ -75,7 +75,7 @@ begin
   Result := Doc.GetValueOrNull('value');
 end;
 
-procedure TKVHttpClient.PutValue(const Key: string; const Value: Variant);
+procedure TKVHttpClient.PostValue(const Key: string; const Value: Variant);
 var
   Doc: TDocVariantData;
   Source: TStringStream;
@@ -93,7 +93,7 @@ begin
   end;
 end;
 
-procedure TKVHttpClient.PutValues(const KeyValues: array of TPair<string, Variant>);
+procedure TKVHttpClient.PostValues(const KeyValues: array of TPair<string, Variant>);
 var
   Doc: TDocVariantData;
   Pair: TPair<string, Variant>;

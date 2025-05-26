@@ -14,9 +14,9 @@ type
     FKV: TKeyValueServer;
     FLongPollContexts: TThreadList;
     procedure HTTPGetHandler(Sender: TObject; const URL: string; const Params: TStrings;
-    const Body: string; const Json: variant; const Args: THTTPCommandArgs; var ResponseText: string; var ResponseCode: Integer);
-    procedure HTTPPutHandler(Sender: TObject; const URL: string; const Params: TStrings;
-    const Body: string; const Json: variant; const Args: THTTPCommandArgs; var ResponseText: string; var ResponseCode: Integer);
+    const Body: string; const BodyVariant: variant; const Args: THTTPCommandArgs; var ResponseText: string; var ResponseCode: Integer);
+    procedure HTTPPostHandler(Sender: TObject; const URL: string; const Params: TStrings;
+    const Body: string; const BodyVariant: variant; const Args: THTTPCommandArgs; var ResponseText: string; var ResponseCode: Integer);
     procedure AddLongPoll(LastId: Int64; const ClientId: string; var ResponseText: string; var ResponseCode: Integer);
     procedure HandleValueChanged(Sender: TObject; const Key: string; const Value: variant; const SourceId: string);
     procedure NotifyLongPoll;
@@ -49,7 +49,7 @@ begin
   FKV := AKV;
   FHTTP := THTTPServer.Create(APort);
   FHTTP.OnGet := HTTPGetHandler;
-  FHTTP.OnPost := HTTPPutHandler;
+  FHTTP.OnPost := HTTPPostHandler;
   FLongPollContexts := TThreadList.Create;
   FKV.OnValueChanged := HandleValueChanged;
 end;
@@ -117,7 +117,7 @@ begin
 end;
 
 procedure TKeyValueHTTPBridge.HTTPGetHandler(Sender: TObject; const URL: string; const Params: TStrings;
-    const Body: string; const Json: variant; const Args: THTTPCommandArgs; var ResponseText: string; var ResponseCode: Integer);
+    const Body: string; const BodyVariant: variant; const Args: THTTPCommandArgs; var ResponseText: string; var ResponseCode: Integer);
 var
   Key: string;
   Value: Variant;
@@ -184,8 +184,8 @@ begin
   ResponseCode := 404;
 end;
 
-procedure TKeyValueHTTPBridge.HTTPPutHandler(Sender: TObject; const URL: string; const Params: TStrings;
-    const Body: string; const Json: variant; const Args: THTTPCommandArgs; var ResponseText: string; var ResponseCode: Integer);
+procedure TKeyValueHTTPBridge.HTTPPostHandler(Sender: TObject; const URL: string; const Params: TStrings;
+    const Body: string; const BodyVariant: variant; const Args: THTTPCommandArgs; var ResponseText: string; var ResponseCode: Integer);
 var
   Key: string;
   Value: Variant;
@@ -205,7 +205,17 @@ begin
 
   if SameText(URL, '/data') then
   begin
-    Key := Args.RequestInfo.Params.Values['key'];
+    if (BodyVariant <> null) and (BodyVariant <> null) then
+    begin
+      Key := TDocVariantData(BodyVariant).S['key'];
+      Value := TDocVariantData(BodyVariant).GetValueOrNull('value');
+    end
+    else
+    begin
+      Key := Args.RequestInfo.Params.Values['key'];
+      Value := Args.RequestInfo.Params.Values['value'];
+    end;
+
     if Key = '' then
     begin
       Doc.InitObject(['error', 'missing key']);
@@ -213,12 +223,6 @@ begin
       ResponseCode := 400;
       Exit;
     end;
-
-    // Try to parse value as JSON first
-    if (Json <> null) and (Json <> null) then
-      Value := Json
-    else
-      Value := Args.RequestInfo.Params.Values['value'];
 
     FKV.SetValue(Key, Value, ClientId);
     Doc.InitObject(['status', 'ok']);
@@ -235,7 +239,7 @@ begin
       for i := 0 to BatchDoc.Count-1 do
       begin
         Key := BatchDoc.Values[i].S['key'];
-        Value := BatchDoc.Values[i].Values['value'];
+        Value := BatchDoc.Values[i].GetValueOrNull('value');
         if Key <> '' then
           FKV.SetValue(Key, Value, ClientId);
       end;
