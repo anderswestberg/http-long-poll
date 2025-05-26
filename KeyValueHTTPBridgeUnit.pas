@@ -4,7 +4,8 @@ interface
 
 uses
   System.Classes, System.SysUtils, IdCustomHTTPServer,
-  HTTPServerUnit, KeyValueServerUnit, IdStack, System.SyncObjs, System.Generics.Collections;
+  HTTPServerUnit, KeyValueServerUnit, IdStack, System.SyncObjs, System.Generics.Collections,
+  SynCommons;
 
 type
   TKeyValueHTTPBridge = class
@@ -101,25 +102,18 @@ end;
 // JSON encode array of changes
 function TKeyValueHTTPBridge.ChangesToJSON(const Changes: TArray<TChangeRecord>): string;
 var
-  JArr: TJSONArray;
-  JObj: TJSONObject;
+  Doc: TDocVariantData;
   Change: TChangeRecord;
 begin
-  JArr := TJSONArray.Create;
-  try
-    for Change in Changes do
-    begin
-      JObj := TJSONObject.Create;
-      JObj.AddPair('id', TJSONNumber.Create(Change.ChangeId));
-      JObj.AddPair('key', Change.Key);
-      JObj.AddPair('value', Change.Value);
-      JObj.AddPair('timestamp', DateToISO8601(Change.Timestamp, False));
-      JArr.AddElement(JObj);
-    end;
-    Result := JArr.ToJSON;
-  finally
-    JArr.Free;
-  end;
+  Doc.InitArray([]);
+  for Change in Changes do
+    Doc.AddItem(_Obj([
+      'id', Change.ChangeId,
+      'key', Change.Key,
+      'value', Change.Value,
+      'timestamp', DateToISO8601(Change.Timestamp, False)
+    ]));
+  Result := Doc.ToJSON;
 end;
 
 procedure TKeyValueHTTPBridge.HTTPGetHandler(Sender: TObject; const URL: string; const Params: TStrings;
@@ -130,6 +124,7 @@ var
   Changes: TArray<TChangeRecord>;
   ClientId: string;
   Guid: TGUID;
+  Doc: TDocVariantData;
 begin
   // Get client ID from header or generate one if not present
   ClientId := Args.RequestInfo.RawHeaders.Values['X-Client-ID'];
@@ -152,12 +147,17 @@ begin
 
     if FKV.GetValue(Key, Value) then
     begin
-      ResponseText := Format('{"key":"%s","value":%s}', [Key, QuotedStr(Value)]);
+      Doc.InitObject([
+        'key', Key,
+        'value', Value
+      ]);
+      ResponseText := Doc.ToJSON;
       ResponseCode := 200;
     end
     else
     begin
-      ResponseText := '{"error":"not found"}';
+      Doc.InitObject(['error', 'not found']);
+      ResponseText := Doc.ToJSON;
       ResponseCode := 404;
     end;
     Exit;
@@ -178,7 +178,8 @@ begin
     Exit;
   end;
 
-  ResponseText := '{"error":"not found"}';
+  Doc.InitObject(['error', 'not found']);
+  ResponseText := Doc.ToJSON;
   ResponseCode := 404;
 end;
 
@@ -188,6 +189,7 @@ var
   Key, Value: string;
   ClientId: string;
   Guid: TGUID;
+  Doc: TDocVariantData;
 begin
   if SameText(URL, '/data') then
   begin
@@ -195,7 +197,8 @@ begin
     Value := Args.RequestInfo.Params.Values['value'];
     if Key = '' then
     begin
-      ResponseText := '{"error":"missing key"}';
+      Doc.InitObject(['error', 'missing key']);
+      ResponseText := Doc.ToJSON;
       ResponseCode := 400;
       Exit;
     end;
@@ -209,12 +212,14 @@ begin
     end;
 
     FKV.SetValue(Key, Value, ClientId);
-    ResponseText := '{"result":"ok"}';
+    Doc.InitObject(['result', 'ok']);
+    ResponseText := Doc.ToJSON;
     ResponseCode := 200;
     Exit;
   end;
 
-  ResponseText := '{"error":"not found"}';
+  Doc.InitObject(['error', 'not found']);
+  ResponseText := Doc.ToJSON;
   ResponseCode := 404;
 end;
 

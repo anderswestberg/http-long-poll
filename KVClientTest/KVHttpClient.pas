@@ -3,7 +3,8 @@ unit KVHttpClient;
 interface
 
 uses
-  System.Classes, System.SysUtils, IdHTTP, IdComponent, IdStack, IdExceptionCore, System.JSON, NetEncoding;
+  System.Classes, System.SysUtils, IdHTTP, IdComponent, IdStack, IdExceptionCore, System.JSON, NetEncoding,
+  SynCommons;
 
 type
   TChangeItem = record
@@ -26,6 +27,7 @@ type
 
     function GetValue(const Key: string): string;
     procedure PutValue(const Key, Value: string);
+    procedure PutValues(const KeyValues: array of TPair<string, string>);
     function LongPoll(SinceId: Int64; out Changes: TArray<TChangeItem>): Boolean;
     procedure CancelLongPoll;
 
@@ -64,9 +66,12 @@ begin
 end;
 
 function TKVHttpClient.GetValue(const Key: string): string;
+var
+  Doc: TDocVariantData;
 begin
   AddClientIdHeader(FIdHTTP_LongPoll);
-  Result := FIdHTTP_LongPoll.Get(FBaseUrl + '/data?key=' + TNetEncoding.URL.Encode(Key));
+  Doc.InitJSON(FIdHTTP_LongPoll.Get(FBaseUrl + '/data?key=' + TNetEncoding.URL.Encode(Key)));
+  Result := Doc.S['value'];
 end;
 
 procedure TKVHttpClient.PutValue(const Key, Value: string);
@@ -77,6 +82,27 @@ begin
   Source := TStringStream.Create(Value, TEncoding.UTF8);
   try
     FIdHTTP.Post(FBaseUrl + '/data?key=' + TNetEncoding.URL.Encode(Key) + '&value=' + TNetEncoding.URL.Encode(Value), Source);
+  finally
+    Source.Free;
+  end;
+end;
+
+procedure TKVHttpClient.PutValues(const KeyValues: array of TPair<string, string>);
+var
+  Doc: TDocVariantData;
+  Pair: TPair<string, string>;
+  Source: TStringStream;
+begin
+  AddClientIdHeader(FIdHTTP);
+  Doc.InitArray([]);
+  for Pair in KeyValues do
+    Doc.AddItem(_Obj([
+      'key', Pair.Key,
+      'value', Pair.Value
+    ]));
+  Source := TStringStream.Create(Doc.ToJSON, TEncoding.UTF8);
+  try
+    FIdHTTP.Post(FBaseUrl + '/batch', Source);
   finally
     Source.Free;
   end;
@@ -97,33 +123,28 @@ end;
 function TKVHttpClient.LongPoll(SinceId: Int64; out Changes: TArray<TChangeItem>): Boolean;
 var
   Resp: string;
-  Arr: TJSONArray;
-  Obj: TJSONObject;
+  Doc: TDocVariantData;
   i: Integer;
 begin
   SetLength(Changes, 0);
   try
     AddClientIdHeader(FIdHTTP_LongPoll);
     Resp := FIdHTTP_LongPoll.Get(FBaseUrl + '/longpoll?since=' + IntToStr(SinceId));
-    Arr := TJSONObject.ParseJSONValue(Resp) as TJSONArray;
-    try
-      if Assigned(Arr) then
+    Doc.InitJSON(Resp);
+    if (Doc.VarType = DocVariantType.VarType) and (Doc.Kind = dvArray) then
+    begin
+      SetLength(Changes, Doc.Count);
+      for i := 0 to Doc.Count-1 do
       begin
-        SetLength(Changes, Arr.Count);
-        for i := 0 to Arr.Count-1 do
-        begin
-          Obj := Arr.Items[i] as TJSONObject;
-          Changes[i].Id := Obj.GetValue('id').Value.ToInt64;
-          Changes[i].Key := Obj.GetValue('key').Value;
-          Changes[i].Value := Obj.GetValue('value').Value;
-          Changes[i].Timestamp := Obj.GetValue('timestamp').Value;
-        end;
-        Result := True;
-      end else
-        Result := False;
-    finally
-      Arr.Free;
-    end;
+        var Item := TDocVariantData(Doc.Values[i]);
+        Changes[i].Id := Item.I['id'];
+        Changes[i].Key := Item.S['key'];
+        Changes[i].Value := Item.S['value'];
+        Changes[i].Timestamp := Item.S['timestamp'];
+      end;
+      Result := True;
+    end else
+      Result := False;
   except
     on E: EIdHTTPProtocolException do
     begin
