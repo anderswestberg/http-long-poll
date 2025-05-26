@@ -1,0 +1,36 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{96CDBB03-801E-4D82-9808-F310AAE95046}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="TestLongPoll.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="TestLongPoll">
+        <MSBuild Projects="TestLongPoll.dproj"/>
+    </Target>
+    <Target Name="TestLongPoll:Clean">
+        <MSBuild Projects="TestLongPoll.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestLongPoll:Make">
+        <MSBuild Projects="TestLongPoll.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="TestLongPoll"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="TestLongPoll:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="TestLongPoll:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>
