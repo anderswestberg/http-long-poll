@@ -13,6 +13,7 @@ object MainForm: TMainForm
   OldCreateOrder = True
   Position = poScreenCenter
   OnClose = FormClose
+  OnCreate = FormCreate
   PixelsPerInch = 96
   TextHeight = 13
   object LabelKey: TLabel

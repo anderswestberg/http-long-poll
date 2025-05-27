@@ -1,0 +1,52 @@
+@startuml Client Components
+
+' KVHttpClient
+class TKVHttpClient {
+  - FBaseUrl: string
+  - FIdHTTP: TIdHTTP
+  - FIdHTTP_LongPoll: TIdHTTP
+  - FClientId: string
+  + Create(baseUrl: string)
+  + Destroy()
+  + GetValue(key: string): Variant
+  + PostValue(key: string, value: Variant)
+  + PostValues(keyValues: array of TPair<string, Variant>)
+  + LongPoll(sinceId: Int64, out changes: TArray<TChangeItem>): Boolean
+  + CancelLongPoll()
+}
+
+' KVLongPollThread
+class TKVLongPollThread {
+  - FClient: TKVHttpClient
+  - FLastId: Int64
+  - FOnUpdate: TChangeBatchProc
+  - FStopRequested: Boolean
+  + Create(client: TKVHttpClient, startId: Int64, onUpdate: TChangeBatchProc)
+  + Stop()
+  + Execute()
+}
+
+' ChangeItem
+class TChangeItem {
+  + Id: Int64
+  + Key: string
+  + Value: Variant
+  + Timestamp: string
+}
+
+' MainForm
+class TMainForm {
+  - FClient: TKVHttpClient
+  - FPollThread: TKVLongPollThread
+  - FLastSeenId: Int64
+  - FClientId: string
+  + OnLongPollUpdate(batch: TArray<TChangeItem>)
+  + Log(s: string)
+}
+
+TKVLongPollThread "1" -- "1" TKVHttpClient : uses
+TMainForm "1" -- "1" TKVHttpClient : contains
+TMainForm "1" -- "1" TKVLongPollThread : manages
+TKVHttpClient "1" -- "*" TChangeItem : handles
+
+@enduml 

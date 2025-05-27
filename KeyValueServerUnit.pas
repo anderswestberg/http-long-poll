@@ -77,7 +77,6 @@ end;
 procedure TKeyValueServer.SetValue(const Key: string; const Value: Variant; const SourceId: string = '');
 var
   Changed: Boolean;
-  OldValue: Variant;
 begin
   FDataLock.Acquire;
   try
@@ -96,7 +95,6 @@ procedure TKeyValueServer.SetValues(const Updates: array of TPair<string, Varian
 var
   i: Integer;
   Changed: Boolean;
-  OldValue: Variant;
 begin
   if Length(Updates) = 0 then
     Exit;

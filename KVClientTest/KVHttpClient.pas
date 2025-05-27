@@ -71,7 +71,7 @@ var
   Doc: TDocVariantData;
 begin
   AddClientIdHeader(FIdHTTP_LongPoll);
-  Doc.InitJSON(FIdHTTP_LongPoll.Get(FBaseUrl + '/data?key=' + TNetEncoding.URL.Encode(Key)));
+  Doc.InitJSON(RawUTF8(FIdHTTP_LongPoll.Get(FBaseUrl + '/data?key=' + TNetEncoding.URL.Encode(Key))));
   Result := Doc.GetValueOrNull('value');
 end;
 
@@ -85,7 +85,7 @@ begin
     'key', Key,
     'value', Value
   ]);
-  Source := TStringStream.Create(Doc.ToJSON, TEncoding.UTF8);
+  Source := TStringStream.Create(string(Doc.ToJSON), TEncoding.UTF8);
   try
     FIdHTTP.Post(FBaseUrl + '/data', Source);
   finally
@@ -106,7 +106,7 @@ begin
       'key', Pair.Key,
       'value', Pair.Value
     ]));
-  Source := TStringStream.Create(Doc.ToJSON, TEncoding.UTF8);
+  Source := TStringStream.Create(string(Doc.ToJSON), TEncoding.UTF8);
   try
     FIdHTTP.Post(FBaseUrl + '/batch', Source);
   finally
@@ -136,7 +136,7 @@ begin
   try
     AddClientIdHeader(FIdHTTP_LongPoll);
     Resp := FIdHTTP_LongPoll.Get(FBaseUrl + '/longpoll?since=' + IntToStr(SinceId));
-    Doc.InitJSON(Resp);
+    Doc.InitJSON(RawUTF8(Resp));
     if (Doc.VarType = DocVariantType.VarType) and (Doc.Kind = dvArray) then
     begin
       SetLength(Changes, Doc.Count);

@@ -3,14 +3,14 @@ unit KeyValueHTTPBridgeUnit;
 interface
 
 uses
-  System.Classes, System.SysUtils, IdCustomHTTPServer,
+  System.Types, System.Classes, System.SysUtils, IdCustomHTTPServer,
   HTTPServerUnit, KeyValueServerUnit, IdStack, System.SyncObjs, System.Generics.Collections,
   SynCommons;
 
 type
   TKeyValueHTTPBridge = class
   private
-    FHTTP: THTTPServer;
+    FHTTPThread: THTTPServerThread;
     FKV: TKeyValueServer;
     FLongPollContexts: TThreadList;
     procedure HTTPGetHandler(Sender: TObject; const URL: string; const Params: TStrings;
@@ -21,13 +21,15 @@ type
     procedure HandleValueChanged(Sender: TObject; const Key: string; const Value: variant; const SourceId: string);
     procedure NotifyLongPoll;
     function ChangesToJSON(const Changes: TArray<TChangeRecord>): string;
+
+    function GetHTTPServer: THTTPServer;
   public
     constructor Create(APort: Integer; AKV: TKeyValueServer);
     destructor Destroy; override;
     procedure Start;
     procedure Stop;
     property KeyValueStore: TKeyValueServer read FKV;
-    property HTTPServer: THTTPServer read FHTTP;
+    property HTTPServer: THTTPServer read GetHTTPServer;
   end;
 
 implementation
@@ -47,9 +49,9 @@ constructor TKeyValueHTTPBridge.Create(APort: Integer; AKV: TKeyValueServer);
 begin
   inherited Create;
   FKV := AKV;
-  FHTTP := THTTPServer.Create(APort);
-  FHTTP.OnGet := HTTPGetHandler;
-  FHTTP.OnPost := HTTPPostHandler;
+  FHTTPThread := THTTPServerThread.Create(APort);
+  FHTTPThread.FHttpServer.OnGet := HTTPGetHandler;
+  FHTTPThread.FHttpServer.OnPost := HTTPPostHandler;
   FLongPollContexts := TThreadList.Create;
   FKV.OnValueChanged := HandleValueChanged;
 end;
@@ -58,13 +60,18 @@ destructor TKeyValueHTTPBridge.Destroy;
 begin
   Stop; // Ensure server is stopped
   FLongPollContexts.Free;
-  FHTTP.Free;
+  FHTTPThread.Free;
   inherited;
+end;
+
+function TKeyValueHTTPBridge.GetHTTPServer: THTTPServer;
+begin
+  Result := FHTTPThread.FHttpServer;
 end;
 
 procedure TKeyValueHTTPBridge.Start;
 begin
-  FHTTP.Active := True;
+  FHTTPThread.Start;
 end;
 
 procedure TKeyValueHTTPBridge.Stop;
@@ -88,14 +95,11 @@ begin
   // Give clients a moment to disconnect
   Sleep(100);
 
-  // Now stop the server
-  try
-    FHTTP.Active := False;
-  except
-    on E: EAbort do
-      ; // Ignore abort during shutdown
-    on E: EIdSocketError do
-      ; // Ignore socket errors during shutdown
+  // Now stop the server thread
+  if Assigned(FHTTPThread) then
+  begin
+    FHTTPThread.Terminate;
+    FHTTPThread.WaitFor;
   end;
 end;
 
@@ -117,7 +121,7 @@ begin
         'timestamp', DateToISO8601(Change.Timestamp, False)
       ]));
   end;
-  Result := Doc.ToJSON;
+  Result := string(Doc.ToJSON);
 end;
 
 procedure TKeyValueHTTPBridge.HTTPGetHandler(Sender: TObject; const URL: string; const Params: TStrings;
@@ -156,13 +160,13 @@ begin
         'key', Key,
         'value', Value
       ]);
-      ResponseText := Doc.ToJSON;
+      ResponseText := string(Doc.ToJSON);
       ResponseCode := 200;
     end
     else
     begin
       Doc.InitObject(['error', 'not found']);
-      ResponseText := Doc.ToJSON;
+      ResponseText := string(Doc.ToJSON);
       ResponseCode := 404;
     end;
     Exit;
@@ -184,7 +188,7 @@ begin
   end;
 
   Doc.InitObject(['error', 'not found']);
-  ResponseText := Doc.ToJSON;
+  ResponseText := string(Doc.ToJSON);
   ResponseCode := 404;
 end;
 
@@ -223,21 +227,21 @@ begin
     if Key = '' then
     begin
       Doc.InitObject(['error', 'missing key']);
-      ResponseText := Doc.ToJSON;
+      ResponseText := string(Doc.ToJSON);
       ResponseCode := 400;
       Exit;
     end;
 
     FKV.SetValue(Key, Value, ClientId);
     Doc.InitObject(['status', 'ok']);
-    ResponseText := Doc.ToJSON;
+    ResponseText := string(Doc.ToJSON);
     ResponseCode := 200;
     Exit;
   end;
 
   if SameText(URL, '/batch') then
   begin
-    BatchDoc.InitJSON(Body);
+    BatchDoc.InitJSON(RawUTF8(Body));
     if BatchDoc.Kind = dvArray then
     begin
       for i := 0 to BatchDoc.Count-1 do
@@ -248,20 +252,20 @@ begin
           FKV.SetValue(Key, Value, ClientId);
       end;
       Doc.InitObject(['status', 'ok']);
-      ResponseText := Doc.ToJSON;
+      ResponseText := string(Doc.ToJSON);
       ResponseCode := 200;
     end
     else
     begin
       Doc.InitObject(['error', 'invalid batch format']);
-      ResponseText := Doc.ToJSON;
+      ResponseText := string(Doc.ToJSON);
       ResponseCode := 400;
     end;
     Exit;
   end;
 
   Doc.InitObject(['error', 'not found']);
-  ResponseText := Doc.ToJSON;
+  ResponseText := string(Doc.ToJSON);
   ResponseCode := 404;
 end;
 

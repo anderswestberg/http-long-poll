@@ -24,9 +24,12 @@ type
     procedure Timer1Timer(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure BtnWriteKVClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
   private
     FKV: TKeyValueServer;
     FBridge: TKeyValueHTTPBridge;
+    LogStrings: TStringList;
+    lastLog: string;
     procedure Log(const S: string);
     procedure UpdateKVDisplay;
   public
@@ -49,15 +52,23 @@ var
   Output: TArray<string>;
   S: string;
 begin
+  if not Assigned(LogStrings) then
+    Exit;
   MemoLog.Lines.BeginUpdate;
   try
-    MemoLog.Lines.Add('');
-    MemoLog.Lines.Add('Current Key/Value Store:');
-    if Assigned(FKV) then
+    FKV.GetAll(Output);
+    LogStrings.Clear;
+    for S in Output do
+      LogStrings.Add('  ' + S);
+    if LogStrings.Text <> LastLog then
     begin
-      FKV.GetAll(Output);
-      for S in Output do
-        MemoLog.Lines.Add('  ' + S);
+      LastLog := LogStrings.Text;
+      MemoLog.Lines.Add('Current Key/Value Store:');
+      if Assigned(FKV) then
+      begin
+        for S in Output do
+          MemoLog.Lines.Add('  ' + S);
+      end;
     end;
   finally
     MemoLog.Lines.EndUpdate;
@@ -92,6 +103,13 @@ end;
 procedure TMainForm.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
   BtnStopClick(nil);
+  Timer1.Enabled := False;
+  LogStrings.Free;
+end;
+
+procedure TMainForm.FormCreate(Sender: TObject);
+begin
+  LogStrings := TStringList.Create;
 end;
 
 procedure TMainForm.Timer1Timer(Sender: TObject);
@@ -105,11 +123,10 @@ var
   Value: Variant;
   IntValue: Int64;
   DoubleValue: Double;
-  BoolValue: Boolean;
 begin
   if not Assigned(FKV) then
     Exit;
-  Key := Trim(EditKey.Text);
+  Key := System.SysUtils.Trim(EditKey.Text);
   ValueStr := EditValue.Text;
   if Key = '' then
   begin
@@ -129,7 +146,7 @@ begin
   else if ValueStr.StartsWith('{') or ValueStr.StartsWith('[') then
     // Try to parse as JSON
     try
-      Value := _JSON(ValueStr);
+      Value := _JSON(RawUTF8(ValueStr));
     except
       Value := ValueStr;
     end

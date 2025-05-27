@@ -1,0 +1,74 @@
+@startuml Server Components
+
+' KeyValueServer
+class TKeyValueServer {
+  - FData: TDictionary<string, Variant>
+  - FDataLock: TCriticalSection
+  - FOnValueChanged: TKeyValueChangedEvent
+  - FChangeLog: TList<TChangeRecord>
+  - FNextChangeId: Int64
+  + Create()
+  + Destroy()
+  + GetValue(key: string, out value: Variant): Boolean
+  + SetValue(key: string, value: Variant, sourceId: string)
+  + SetValues(updates: array of TPair<string, Variant>, sourceId: string)
+  + GetAll(out output: TArray<string>)
+  + GetChangesSince(lastId: Int64, sourceId: string, out changes: TArray<TChangeRecord>)
+}
+
+' KeyValueHTTPBridge
+class TKeyValueHTTPBridge {
+  - FHTTP: THTTPServer
+  - FHTTPThread: THTTPServerThread
+  - FKV: TKeyValueServer
+  - FLongPollContexts: TThreadList
+  + Create(port: Integer, kv: TKeyValueServer)
+  + Destroy()
+  + Start()
+  + Stop()
+}
+
+' HTTPServer
+class THTTPServer {
+  - FHTTPServer: TIdHTTPServer
+  - FPort: Integer
+  - FOnGet: THTTPCommandEvent
+  - FOnPost: THTTPCommandEvent
+  + Create(port: Integer)
+  + Destroy()
+  + StartServer()
+  + StopServer()
+}
+
+' HTTPServerThread
+class THTTPServerThread {
+  - FHttpServer: THttpServer
+  + Create(port: Integer)
+  + Destroy()
+  + Execute()
+}
+
+' LongPollContext
+class TLongPollContext {
+  + LastId: Int64
+  + WaitEvent: TEvent
+  + RequestedAt: TDateTime
+  + ClientId: string
+}
+
+' ChangeRecord
+class TChangeRecord {
+  + ChangeId: Int64
+  + Timestamp: TDateTime
+  + Key: string
+  + Value: Variant
+  + SourceId: string
+}
+
+TKeyValueServer "1" -- "1" TKeyValueHTTPBridge : contains
+TKeyValueHTTPBridge "1" -- "1" THTTPServerThread : contains
+THTTPServerThread "1" -- "1" THTTPServer : contains
+TKeyValueHTTPBridge "1" -- "*" TLongPollContext : manages
+TKeyValueServer "1" -- "*" TChangeRecord : maintains
+
+@enduml 
