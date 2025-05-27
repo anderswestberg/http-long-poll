@@ -1,10 +1,17 @@
-﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
-        <ProjectGuid>{96CDBB03-801E-4D82-9808-F310AAE95046}</ProjectGuid>
+        <ProjectGuid>{1B2D7E4F-86A5-4C1E-9C3A-98D0B1F5C2E5}</ProjectGuid>
     </PropertyGroup>
     <ItemGroup>
-        <Projects Include="TestLongPoll.dproj">
+        <Projects Include="src\HttpLongPoll.dproj">
             <Dependencies/>
+        </Projects>
+        <Projects Include="demo\TestLongPoll.dproj">
+            <Dependencies>src\HttpLongPoll.dproj</Dependencies>
+        </Projects>
+        <Projects Include="demo\KVClientTest\KVClienttest.dproj">
+            <Dependencies>src\HttpLongPoll.dproj</Dependencies>
         </Projects>
     </ItemGroup>
     <ProjectExtensions>
@@ -14,23 +21,41 @@
             <Default.Personality/>
         </BorlandProject>
     </ProjectExtensions>
+    <Target Name="HttpLongPoll">
+        <MSBuild Projects="src\HttpLongPoll.dproj"/>
+    </Target>
+    <Target Name="HttpLongPoll:Clean">
+        <MSBuild Projects="src\HttpLongPoll.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="HttpLongPoll:Make">
+        <MSBuild Projects="src\HttpLongPoll.dproj" Targets="Make"/>
+    </Target>
     <Target Name="TestLongPoll">
-        <MSBuild Projects="TestLongPoll.dproj"/>
+        <MSBuild Projects="demo\TestLongPoll.dproj"/>
     </Target>
     <Target Name="TestLongPoll:Clean">
-        <MSBuild Projects="TestLongPoll.dproj" Targets="Clean"/>
+        <MSBuild Projects="demo\TestLongPoll.dproj" Targets="Clean"/>
     </Target>
     <Target Name="TestLongPoll:Make">
-        <MSBuild Projects="TestLongPoll.dproj" Targets="Make"/>
+        <MSBuild Projects="demo\TestLongPoll.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="KVClientTest">
+        <MSBuild Projects="demo\KVClientTest\KVClienttest.dproj"/>
+    </Target>
+    <Target Name="KVClientTest:Clean">
+        <MSBuild Projects="demo\KVClientTest\KVClienttest.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="KVClientTest:Make">
+        <MSBuild Projects="demo\KVClientTest\KVClienttest.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
-        <CallTarget Targets="TestLongPoll"/>
+        <CallTarget Targets="HttpLongPoll;TestLongPoll;KVClientTest"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="TestLongPoll:Clean"/>
+        <CallTarget Targets="HttpLongPoll:Clean;TestLongPoll:Clean;KVClientTest:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="TestLongPoll:Make"/>
+        <CallTarget Targets="HttpLongPoll:Make;TestLongPoll:Make;KVClientTest:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>
