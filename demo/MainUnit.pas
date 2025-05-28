@@ -79,10 +79,10 @@ procedure TMainForm.BtnStartClick(Sender: TObject);
 begin
   if Assigned(FBridge) then Exit;
   FKV := CreateDefaultKeyValueStore;
-  FBridge := TKeyValueHTTPBridge.Create(8080, FKV);
+  FBridge := TKeyValueHTTPBridge.Create(8868, FKV);
   FBridge.Start;
   Timer1.Enabled := True;
-  Log('Server started on port 8080.');
+  Log('Server started on port 8868.');
   UpdateKVDisplay;
 end;
 

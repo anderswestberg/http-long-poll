@@ -15,9 +15,11 @@ type
     LabelValue: TLabel;
     EditValue: TEdit;
     BtnWrite: TButton;
+    BtnRead: TButton;
     BtnStartLongPoll: TButton;
     BtnStopLongPoll: TButton;
     procedure BtnWriteClick(Sender: TObject);
+    procedure BtnReadClick(Sender: TObject);
     procedure BtnStartLongPollClick(Sender: TObject);
     procedure BtnStopLongPollClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -43,7 +45,7 @@ procedure TMainForm.FormCreate(Sender: TObject);
 var
   Guid: TGUID;
 begin
-  FClient := TKVHttpClient.Create('http://localhost:8080');
+  FClient := TKVHttpClient.Create('http://localhost:8868');
   FPollThread := nil;
   FLastSeenId := 0;
   // Generate a GUID as client ID
@@ -91,6 +93,30 @@ begin
   try
     FClient.PostValue(Trim(EditKey.Text), EditValue.Text);
     Log(Format('PUT %s = %s', [Trim(EditKey.Text), EditValue.Text]));
+  except
+    on E: Exception do
+      Log('[Error] ' + E.Message);
+  end;
+end;
+
+procedure TMainForm.BtnReadClick(Sender: TObject);
+var
+  Value: Variant;
+begin
+  if Trim(EditKey.Text) = '' then
+  begin
+    ShowMessage('Key must not be empty');
+    Exit;
+  end;
+  try
+    Value := FClient.GetValue(Trim(EditKey.Text));
+    if not VarIsNull(Value) then
+    begin
+      EditValue.Text := VarToStr(Value);
+      Log(Format('GET %s = %s', [Trim(EditKey.Text), VarToStr(Value)]));
+    end
+    else
+      Log(Format('GET %s = <not found>', [Trim(EditKey.Text)]));
   except
     on E: Exception do
       Log('[Error] ' + E.Message);

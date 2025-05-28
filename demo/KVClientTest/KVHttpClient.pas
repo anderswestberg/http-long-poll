@@ -70,8 +70,8 @@ function TKVHttpClient.GetValue(const Key: string): Variant;
 var
   Doc: TDocVariantData;
 begin
-  AddClientIdHeader(FIdHTTP_LongPoll);
-  Doc.InitJSON(RawUTF8(FIdHTTP_LongPoll.Get(FBaseUrl + '/data?key=' + TNetEncoding.URL.Encode(Key))));
+  AddClientIdHeader(FIdHTTP);  // Use regular client
+  Doc.InitJSON(RawUTF8(FIdHTTP.Get(FBaseUrl + '/data?key=' + TNetEncoding.URL.Encode(Key))));
   Result := Doc.GetValueOrNull('value');
 end;
 
@@ -136,20 +136,26 @@ begin
   try
     AddClientIdHeader(FIdHTTP_LongPoll);
     Resp := FIdHTTP_LongPoll.Get(FBaseUrl + '/longpoll?since=' + IntToStr(SinceId));
-    Doc.InitJSON(RawUTF8(Resp));
-    if (Doc.VarType = DocVariantType.VarType) and (Doc.Kind = dvArray) then
+    if Resp <> '' then
     begin
-      SetLength(Changes, Doc.Count);
-      for i := 0 to Doc.Count-1 do
+      Doc.InitJSON(RawUTF8(Resp));
+      if Doc.Kind = dvArray then
       begin
-        var Item := TDocVariantData(Doc.Values[i]);
-        Changes[i].Id := Item.I['id'];
-        Changes[i].Key := Item.S['key'];
-        Changes[i].Value := Item.GetValueOrNull('value');
-        Changes[i].Timestamp := Item.S['timestamp'];
-      end;
-      Result := True;
-    end else
+        SetLength(Changes, Doc.Count);
+        for i := 0 to Doc.Count-1 do
+        begin
+          var Item := TDocVariantData(Doc.Values[i]);
+          Changes[i].Id := Item.I['id'];
+          Changes[i].Key := Item.S['key'];
+          Changes[i].Value := Item.GetValueOrNull('value');
+          Changes[i].Timestamp := Item.S['timestamp'];
+        end;
+        Result := Doc.Count > 0;
+      end 
+      else
+        Result := False;
+    end 
+    else
       Result := False;
   except
     on E: EIdHTTPProtocolException do

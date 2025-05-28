@@ -1229,6 +1229,6 @@ BEGIN
 END
 
 /* c:\program files (x86)\embarcadero\studio\20.0\lib\Win32\release\Controls.res */
-/* C:\work\http-long-poll\demo\KVClientTest\MainUnit.dfm */
-/* C:\work\http-long-poll\demo\KVClientTest\KVClientTest.res */
-/* C:\work\http-long-poll\demo\KVClientTest\KVClientTest.drf */
+/* C:\work\prod-dip\apps\prod-dip\http-long-poll\demo\KVClientTest\MainUnit.dfm */
+/* C:\work\prod-dip\apps\prod-dip\http-long-poll\demo\KVClientTest\KVClientTest.res */
+/* C:\work\prod-dip\apps\prod-dip\http-long-poll\demo\KVClientTest\KVClientTest.drf */

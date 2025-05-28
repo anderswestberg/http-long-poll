@@ -1061,6 +1061,6 @@ BEGIN
 END
 
 /* c:\program files (x86)\embarcadero\studio\20.0\lib\Win32\release\Controls.res */
-/* C:\work\http-long-poll\demo\MainUnit.dfm */
-/* C:\work\http-long-poll\demo\TestLongPoll.res */
-/* C:\work\http-long-poll\demo\TestLongPoll.drf */
+/* C:\work\prod-dip\apps\prod-dip\http-long-poll\demo\MainUnit.dfm */
+/* C:\work\prod-dip\apps\prod-dip\http-long-poll\demo\TestLongPoll.res */
+/* C:\work\prod-dip\apps\prod-dip\http-long-poll\demo\TestLongPoll.drf */

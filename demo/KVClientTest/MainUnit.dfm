@@ -62,13 +62,22 @@ object MainForm: TMainForm
     TabOrder = 3
     OnClick = BtnWriteClick
   end
+  object BtnRead: TButton
+    Left = 420
+    Top = 40
+    Width = 80
+    Height = 25
+    Caption = 'Read Key'
+    TabOrder = 4
+    OnClick = BtnReadClick
+  end
   object BtnStartLongPoll: TButton
     Left = 44
     Top = 40
     Width = 120
     Height = 25
     Caption = 'Start Long Poll'
-    TabOrder = 4
+    TabOrder = 5
     OnClick = BtnStartLongPollClick
   end
   object BtnStopLongPoll: TButton
@@ -77,7 +86,7 @@ object MainForm: TMainForm
     Width = 120
     Height = 25
     Caption = 'Stop Long Poll'
-    TabOrder = 5
+    TabOrder = 6
     OnClick = BtnStopLongPollClick
   end
 end

@@ -301,8 +301,7 @@ begin
     ResponseCode := 200;
   end
   else
-  begin
-    ResponseText := '[]'; // no changes
+  begin    ResponseText := '[]'; // no changes
     ResponseCode := 204;
   end;
 
