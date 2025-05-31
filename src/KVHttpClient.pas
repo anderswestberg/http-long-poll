@@ -73,12 +73,14 @@ end;
 function TKVHttpClient.GetValue(const Key: string): Variant;
 var
   Doc: TDocVariantData;
+  Response: string;
 begin
   TSeqLogger.Logger.Log(Information, Format('Client %s reading key %s', [FClientId, Key]));
   AddClientIdHeader(FIdHTTP);  // Use regular client
   try
-    Doc.InitJSON(RawUTF8(FIdHTTP.Get(FBaseUrl + '/data?key=' + TNetEncoding.URL.Encode(Key))));
-    Result := Doc.GetValueOrNull('value');
+    Response := FIdHTTP.Get(FBaseUrl + '/data?key=' + TNetEncoding.URL.Encode(Key));
+    Doc.InitJSON(RawUTF8(Response));
+    Result := JSONToVariant(string(Doc.GetValueOrNull('value')));
     TSeqLogger.Logger.Log(Information, Format('Client %s read key %s = %s', [FClientId, Key, VarToStr(Result)]));
   except
     on E: Exception do
@@ -96,25 +98,23 @@ var
 begin
   TSeqLogger.Logger.Log(Information, Format('Client %s writing key %s = %s', [FClientId, Key, VarToStr(Value)]));
   AddClientIdHeader(FIdHTTP);
+  
   Doc.InitObject([
     'key', Key,
     'value', Value
   ]);
+  Source := TStringStream.Create(string(Doc.ToJSON), TEncoding.UTF8);
   try
-    Source := TStringStream.Create(string(Doc.ToJSON), TEncoding.UTF8);
-    try
-      FIdHTTP.Post(FBaseUrl + '/data', Source);
-      TSeqLogger.Logger.Log(Information, Format('Client %s successfully wrote key %s', [FClientId, Key]));
-    except
-      on E: Exception do
-      begin
-        TSeqLogger.Logger.Log(Error, Format('Client %s failed to write key %s: %s', [FClientId, Key, E.Message]));
-        raise;
-      end;
+    FIdHTTP.Post(FBaseUrl + '/data', Source);
+    TSeqLogger.Logger.Log(Information, Format('Client %s successfully wrote key %s', [FClientId, Key]));
+  except
+    on E: Exception do
+    begin
+      TSeqLogger.Logger.Log(Error, Format('Client %s failed to write key %s: %s', [FClientId, Key, E.Message]));
+      raise;
     end;
-  finally
-    Source.Free;
   end;
+  Source.Free;
 end;
 
 procedure TKVHttpClient.PostValues(const KeyValues: array of TPair<string, Variant>);
@@ -125,16 +125,14 @@ var
 begin
   TSeqLogger.Logger.Log(Information, Format('Client %s starting batch write of %d values', [FClientId, Length(KeyValues)]));
   AddClientIdHeader(FIdHTTP);
-  Doc.InitArray([]);
-  for Pair in KeyValues do
-  begin
-    Doc.AddItem(_Obj([
-      'key', Pair.Key,
-      'value', Pair.Value
-    ]));
-    TSeqLogger.Logger.Log(Information, Format('Client %s batch write key %s = %s', [FClientId, Pair.Key, VarToStr(Pair.Value)]));
-  end;
+
   try
+    Doc.InitArray([]);
+    for Pair in KeyValues do
+      Doc.AddItem(_Obj([
+        'key', Pair.Key,
+        'value', Pair.Value
+      ]));
     Source := TStringStream.Create(string(Doc.ToJSON), TEncoding.UTF8);
     try
       FIdHTTP.Post(FBaseUrl + '/batch', Source);

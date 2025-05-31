@@ -109,27 +109,31 @@ end;
 procedure TDictionaryKeyValueStore.SetValue(const Key: string; const Value: Variant; const SourceId: string = '');
 var
   Changed: Boolean;
+  StoredValue: Variant;
 begin
   FDataLock.Acquire;
   try
+    StoredValue := Value;
     Changed := (not FData.ContainsKey(Key)) or (FData[Key] <> Value);
     FData.AddOrSetValue(Key, Value);
+
     if Changed then
     begin
-      AddChange(Key, Value, SourceId);
-      TSeqLogger.Logger.Log(Information, Format('Store: Value changed key=%s value=%s source=%s', [Key, VarToStr(Value), SourceId]));
+      AddChange(Key, StoredValue, SourceId);
+      TSeqLogger.Logger.Log(Information, Format('Store: Value changed key=%s value=%s source=%s', [Key, VarToStr(StoredValue), SourceId]));
     end;
   finally
     FDataLock.Release;
   end;
   if Changed and Assigned(FOnValueChanged) then
-    FOnValueChanged(Self, Key, Value, SourceId);
+    FOnValueChanged(Self, Key, StoredValue, SourceId);
 end;
 
 procedure TDictionaryKeyValueStore.SetValues(const Updates: array of TPair<string, Variant>; const SourceId: string = '');
 var
   i: Integer;
   Changed: Boolean;
+  StoredValue: Variant;
 begin
   if Length(Updates) = 0 then
     Exit;
@@ -140,13 +144,15 @@ begin
   try
     for i := 0 to High(Updates) do
     begin
+      StoredValue := Updates[i].Value;
       Changed := (not FData.ContainsKey(Updates[i].Key)) or (FData[Updates[i].Key] <> Updates[i].Value);
       FData.AddOrSetValue(Updates[i].Key, Updates[i].Value);
+
       if Changed then
       begin
-        AddChange(Updates[i].Key, Updates[i].Value, SourceId);
+        AddChange(Updates[i].Key, StoredValue, SourceId);
         TSeqLogger.Logger.Log(Information, Format('Store: Batch value changed key=%s value=%s source=%s', 
-          [Updates[i].Key, VarToStr(Updates[i].Value), SourceId]));
+          [Updates[i].Key, VarToStr(StoredValue), SourceId]));
       end;
     end;
   finally
@@ -156,7 +162,7 @@ begin
   // Notify changes outside the lock
   if Assigned(FOnValueChanged) then
     for i := 0 to High(Updates) do
-      FOnValueChanged(Self, Updates[i].Key, Updates[i].Value, SourceId);
+      FOnValueChanged(Self, Updates[i].Key, StoredValue, SourceId);
 end;
 
 procedure TDictionaryKeyValueStore.GetAll(var Output: TArray<string>);

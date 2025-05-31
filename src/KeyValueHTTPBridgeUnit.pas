@@ -264,17 +264,29 @@ begin
 
   if SameText(URL, '/data') then
   begin
-    if not (BodyVariant.key <> null) then
+    if (BodyVariant <> null) and (BodyVariant <> null) then
     begin
-      TSeqLogger.Logger.Log(Warning, Format('Client %s POST request missing key in body', [ClientId]));
-      ResponseText := '{"error":"missing key in body"}';
+      Key := TDocVariantData(BodyVariant).S['key'];
+      Value := TDocVariantData(BodyVariant).GetValueOrNull('value');
+    end
+    else
+    begin
+      Key := Args.RequestInfo.Params.Values['key'];
+      Value := Args.RequestInfo.Params.Values['value'];
+    end;
+
+    if Key = '' then
+    begin
+      TSeqLogger.Logger.Log(Error, Format('Client %s: key is missing', [ClientId]));
+      Doc.InitObject(['error', 'missing key']);
+      ResponseText := string(Doc.ToJSON);
       ResponseCode := 400;
       Exit;
     end;
 
-    TSeqLogger.Logger.Log(Information, Format('Client %s wrote key %s = %s', 
-      [ClientId, string(BodyVariant.key), VariantSaveJSON(BodyVariant.value)]));
-    FKV.SetValue(string(BodyVariant.key), BodyVariant.value, ClientId);
+    TSeqLogger.Logger.Log(Information, Format('Client %s wrote key %s = %s',
+      [ClientId, Key, VariantToString(Value)]));
+    FKV.SetValue(Key, Value, ClientId);
     ResponseText := '{"status":"ok"}';
     ResponseCode := 200;
     Exit;
@@ -289,6 +301,7 @@ begin
       begin
         Key := BatchDoc.Values[i].S['key'];
         Value := BatchDoc.Values[i].GetValueOrNull('value');
+        
         if Key <> '' then
           FKV.SetValue(Key, Value, ClientId);
       end;
