@@ -3,9 +3,9 @@ program KVClientTest;
 uses
   Vcl.Forms,
   MainUnit in 'MainUnit.pas' {MainForm},
-  KVLongPollThread in 'KVLongPollThread.pas',
-  KVHttpClient in 'KVHttpClient.pas',
-  SeqLoggerClass in '..\..\src\SeqLoggerClass.pas';
+  SeqLoggerClass in '..\..\src\SeqLoggerClass.pas',
+  KeyValueClientUnit in '..\..\src\KeyValueClientUnit.pas',
+  KVHttpClient in '..\..\src\KVHttpClient.pas';
 
 {$R *.res}
 

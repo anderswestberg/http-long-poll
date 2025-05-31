@@ -45,6 +45,9 @@
         <DCCReference Include="KeyValueServerUnit.pas"/>
         <DCCReference Include="..\..\prod-dip\lib\Synopse\SynCommons.pas"/>
         <DCCReference Include="..\..\prod-dip\lib\Synopse\SynLZ.pas"/>
+        <DCCReference Include="SeqLoggerClass.pas"/>
+        <DCCReference Include="KeyValueClientUnit.pas"/>
+        <DCCReference Include="KVHttpClient.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

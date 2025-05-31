@@ -6,7 +6,7 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.StdCtrls, Vcl.ExtCtrls, KeyValueServerUnit, KeyValueHTTPBridgeUnit,
-  SynCommons;
+  SynCommons, SeqloggerClass;
 
 type
   TMainForm = class(TForm)
@@ -82,6 +82,7 @@ begin
   FBridge := TKeyValueHTTPBridge.Create(8868, FKV);
   FBridge.Start;
   Timer1.Enabled := True;
+  TSeqLogger.Logger.Log(Information, 'HTTP server started on port 8868');
   Log('Server started on port 8868.');
   UpdateKVDisplay;
 end;
@@ -95,6 +96,7 @@ begin
     FBridge.Free;
     FBridge := nil;
     FKV := nil; // Interface will be released automatically
+    TSeqLogger.Logger.Log(Information, 'HTTP server stopped');
     Log('Server stopped.');
   end;
 end;
@@ -104,10 +106,12 @@ begin
   BtnStopClick(nil);
   Timer1.Enabled := False;
   LogStrings.Free;
+  TSeqLogger.Logger.Log(Information, 'KV Server stopped');
 end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
+  TSeqLogger.Logger.Log(Information, 'KV Server started');
   LogStrings := TStringList.Create;
 end;
 
@@ -153,6 +157,7 @@ begin
     Value := ValueStr;
 
   FKV.SetValue(Key, Value);
+  TSeqLogger.Logger.Log(Information, Format('Manual key/value write: %s=%s', [Key, ValueStr]));
   Log(Format('Manually wrote: %s=%s', [Key, ValueStr]));
   UpdateKVDisplay;
 end;

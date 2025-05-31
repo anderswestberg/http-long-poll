@@ -38,6 +38,10 @@ contains
   KeyValueHTTPBridgeUnit in 'KeyValueHTTPBridgeUnit.pas',
   KeyValueServerUnit in 'KeyValueServerUnit.pas',
   SynCommons in '..\..\prod-dip\lib\Synopse\SynCommons.pas',
-  SynLZ in '..\..\prod-dip\lib\Synopse\SynLZ.pas';
+  SynLZ in '..\..\prod-dip\lib\Synopse\SynLZ.pas',
+  SeqLoggerClass in 'SeqLoggerClass.pas',
+  KeyValueClientUnit in 'KeyValueClientUnit.pas',
+  KVHttpClient in 'KVHttpClient.pas';
 
 end.
+

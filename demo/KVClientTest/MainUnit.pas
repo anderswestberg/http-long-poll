@@ -5,7 +5,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
   System.DateUtils, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
-  KVHttpClient, KVLongPollThread, Generics.Collections, SeqloggerClass;
+  KeyValueClientUnit, Generics.Collections, SeqloggerClass;
 
 type
   TMainForm = class(TForm)
@@ -18,31 +18,25 @@ type
     EditValue: TEdit;
     BtnWrite: TButton;
     BtnRead: TButton;
-    BtnStartLongPoll: TButton;
-    BtnStopLongPoll: TButton;
     BtnStartStressTest: TButton;
     BtnStopStressTest: TButton;
     StressTestTimer: TTimer;
     procedure BtnWriteClick(Sender: TObject);
     procedure BtnReadClick(Sender: TObject);
-    procedure BtnStartLongPollClick(Sender: TObject);
-    procedure BtnStopLongPollClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure BtnStartStressTestClick(Sender: TObject);
     procedure BtnStopStressTestClick(Sender: TObject);
     procedure StressTestTimerTimer(Sender: TObject);
   private
-    FClient: TKVHttpClient;
-    FPollThread: TKVLongPollThread;
-    FLastSeenId: Int64;
-    FClientId: string;
+    FClient: TKeyValueClient;
     FStressTestStartTime: TDateTime;
     FStressTestOps: Integer;
     FStressTestErrors: Integer;
-    procedure OnLongPollUpdate(const Batch: TArray<TChangeItem>);
     procedure Log(const S: string);
     procedure UpdateStressTestStats;
+    procedure OnClientStateChange(Sender: TObject; NewState: TKeyValueClientState);
+    procedure OnClientValueChange(Sender: TObject; const Key: string; const Value: Variant);
   public
   end;
 
@@ -54,43 +48,16 @@ implementation
 {$R *.dfm}
 
 procedure TMainForm.FormCreate(Sender: TObject);
-var
-  Guid: TGUID;
-  AllValues: TArray<TPair<string, Variant>>;
-  Pair: TPair<string, Variant>;
 begin
   TSeqLogger.Logger.Log(Information, 'KVClientTest started');
-  FClient := TKVHttpClient.Create('http://localhost:8868');
-  FPollThread := nil;
-  
-  // Generate a GUID as client ID
-  CreateGUID(Guid);
-  FClientId := GUIDToString(Guid);
-  FClient.ClientId := FClientId;
-  Log('Client ID: ' + FClientId);
-
-  // Get latest change ID to start from
-  try
-    FLastSeenId := FClient.GetLatestChangeId;
-    Log('Starting from change ID: ' + IntToStr(FLastSeenId));
-
-    // Get all current values
-    AllValues := FClient.GetAll;
-    Log('Initial values:');
-    for Pair in AllValues do
-      Log(Format('  %s = %s', [Pair.Key, VarToStr(Pair.Value)]));
-  except
-    on E: Exception do
-    begin
-      FLastSeenId := 0;
-      Log('[Error during initialization] ' + E.Message);
-    end;
-  end;
+  FClient := TKeyValueClient.Create('http://localhost:8868');
+  FClient.OnStateChange := OnClientStateChange;
+  FClient.OnValueChange := OnClientValueChange;
+  Log('Client created, waiting for connection...');
 end;
 
 procedure TMainForm.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
-  BtnStopLongPollClick(nil);
   FClient.Free;
 end;
 
@@ -99,21 +66,33 @@ begin
   MemoLog.Lines.Add(FormatDateTime('hh:nn:ss', Now) + '  ' + S);
 end;
 
-procedure TMainForm.OnLongPollUpdate(const Batch: TArray<TChangeItem>);
-var
-  i: Integer;
+procedure TMainForm.OnClientStateChange(Sender: TObject; NewState: TKeyValueClientState);
 begin
-  if Length(Batch) = 0 then
-    Log('[Timeout/No changes]')
-  else
-    for i := 0 to High(Batch) do
+  case NewState of
+    kvsDisconnected:
     begin
-      Log(Format('Change: id=%d key=%s value=%s time=%s', [
-        Batch[i].Id, Batch[i].Key, Batch[i].Value, Batch[i].Timestamp
-      ]));
-      if Batch[i].Id > FLastSeenId then
-        FLastSeenId := Batch[i].Id;
+      Log('Client disconnected');
+      BtnWrite.Enabled := False;
+      BtnRead.Enabled := False;
+      BtnStartStressTest.Enabled := False;
+      BtnStopStressTest.Enabled := False;
     end;
+    kvsConnecting:
+      Log('Client connecting...');
+    kvsConnected:
+    begin
+      Log('Client connected');
+      BtnWrite.Enabled := True;
+      BtnRead.Enabled := True;
+      BtnStartStressTest.Enabled := True;
+      BtnStopStressTest.Enabled := False;
+    end;
+  end;
+end;
+
+procedure TMainForm.OnClientValueChange(Sender: TObject; const Key: string; const Value: Variant);
+begin
+  Log(Format('Value changed: %s = %s', [Key, VarToStr(Value)]));
 end;
 
 procedure TMainForm.BtnWriteClick(Sender: TObject);
@@ -124,7 +103,7 @@ begin
     Exit;
   end;
   try
-    FClient.PostValue(Trim(EditKey.Text), EditValue.Text);
+    FClient.SetValue(Trim(EditKey.Text), EditValue.Text);
     Log(Format('PUT %s = %s', [Trim(EditKey.Text), EditValue.Text]));
   except
     on E: Exception do
@@ -153,25 +132,6 @@ begin
   except
     on E: Exception do
       Log('[Error] ' + E.Message);
-  end;
-end;
-
-procedure TMainForm.BtnStartLongPollClick(Sender: TObject);
-begin
-  BtnStopLongPollClick(nil); // ensure old thread stopped
-  FPollThread := TKVLongPollThread.Create(FClient, FLastSeenId, OnLongPollUpdate);
-  Log('Started long polling from id: ' + IntToStr(FLastSeenId));
-end;
-
-procedure TMainForm.BtnStopLongPollClick(Sender: TObject);
-begin
-  if Assigned(FPollThread) then
-  begin
-    FPollThread.Stop;
-    FPollThread.Terminate;
-    FPollThread.WaitFor;
-    FreeAndNil(FPollThread);
-    Log('Stopped long poll.');
   end;
 end;
 
@@ -233,7 +193,7 @@ begin
     begin
       // Write operation
       Value := Format('value-%d-%d', [Random(1000), FStressTestOps]);
-      FClient.PostValue(Key, Value);
+      FClient.SetValue(Key, Value);
       Inc(FStressTestOps);
       if (FStressTestOps mod 100) = 0 then
         UpdateStressTestStats;

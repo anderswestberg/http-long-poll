@@ -3,7 +3,8 @@ unit KeyValueServerUnit;
 interface
 
 uses
-  System.SysUtils, System.Classes, System.Generics.Collections, System.SyncObjs, System.Variants;
+  System.SysUtils, System.Classes, System.Generics.Collections, System.SyncObjs, System.Variants,
+  SeqloggerClass;
 
 type
   TChangeRecord = class
@@ -83,10 +84,12 @@ begin
   FDataLock := TCriticalSection.Create;
   FChangeLog := TList<TChangeRecord>.Create;
   FNextChangeId := 1;
+  TSeqLogger.Logger.Log(Information, 'Key/Value store created');
 end;
 
 destructor TDictionaryKeyValueStore.Destroy;
 begin
+  TSeqLogger.Logger.Log(Information, 'Key/Value store destroyed');
   FChangeLog.Free;
   FDataLock.Free;
   FData.Free;
@@ -112,7 +115,10 @@ begin
     Changed := (not FData.ContainsKey(Key)) or (FData[Key] <> Value);
     FData.AddOrSetValue(Key, Value);
     if Changed then
+    begin
       AddChange(Key, Value, SourceId);
+      TSeqLogger.Logger.Log(Information, Format('Store: Value changed key=%s value=%s source=%s', [Key, VarToStr(Value), SourceId]));
+    end;
   finally
     FDataLock.Release;
   end;
@@ -128,6 +134,8 @@ begin
   if Length(Updates) = 0 then
     Exit;
 
+  TSeqLogger.Logger.Log(Information, Format('Store: Batch update of %d values from source %s', [Length(Updates), SourceId]));
+
   FDataLock.Acquire;
   try
     for i := 0 to High(Updates) do
@@ -135,7 +143,11 @@ begin
       Changed := (not FData.ContainsKey(Updates[i].Key)) or (FData[Updates[i].Key] <> Updates[i].Value);
       FData.AddOrSetValue(Updates[i].Key, Updates[i].Value);
       if Changed then
+      begin
         AddChange(Updates[i].Key, Updates[i].Value, SourceId);
+        TSeqLogger.Logger.Log(Information, Format('Store: Batch value changed key=%s value=%s source=%s', 
+          [Updates[i].Key, VarToStr(Updates[i].Value), SourceId]));
+      end;
     end;
   finally
     FDataLock.Release;
@@ -180,9 +192,16 @@ begin
 end;
 
 procedure TDictionaryKeyValueStore.PruneChangeLog;
+var
+  PrunedCount: Integer;
 begin
-  while FChangeLog.Count > CHANGELOG_PRUNE_COUNT do
-    FChangeLog.Delete(0); // delete oldest
+  PrunedCount := FChangeLog.Count - CHANGELOG_PRUNE_COUNT;
+  if PrunedCount > 0 then
+  begin
+    while FChangeLog.Count > CHANGELOG_PRUNE_COUNT do
+      FChangeLog.Delete(0); // delete oldest
+    TSeqLogger.Logger.Log(Information, Format('Store: Pruned %d old changes from changelog', [PrunedCount]));
+  end;
 end;
 
 procedure TDictionaryKeyValueStore.GetChangesSince(LastId: Int64; const SourceId: string; out Changes: TArray<TChangeRecord>);
@@ -203,6 +222,8 @@ begin
           Break;
       end;
     Changes := Tmp.ToArray;
+    TSeqLogger.Logger.Log(Information, Format('Store: Retrieved %d changes since ID %d for source %s', 
+      [Length(Changes), LastId, SourceId]));
   finally
     FDataLock.Release;
     Tmp.Free;

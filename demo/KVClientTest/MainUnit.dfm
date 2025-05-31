@@ -91,31 +91,13 @@ object MainForm: TMainForm
       TabOrder = 3
       OnClick = BtnReadClick
     end
-    object BtnStartLongPoll: TButton
-      Left = 44
-      Top = 40
-      Width = 120
-      Height = 25
-      Caption = 'Start Long Poll'
-      TabOrder = 4
-      OnClick = BtnStartLongPollClick
-    end
-    object BtnStopLongPoll: TButton
-      Left = 180
-      Top = 40
-      Width = 120
-      Height = 25
-      Caption = 'Stop Long Poll'
-      TabOrder = 5
-      OnClick = BtnStopLongPollClick
-    end
     object BtnStartStressTest: TButton
       Left = 44
       Top = 71
       Width = 120
       Height = 25
       Caption = 'Start Stress Test'
-      TabOrder = 6
+      TabOrder = 4
       OnClick = BtnStartStressTestClick
     end
     object BtnStopStressTest: TButton
@@ -125,7 +107,7 @@ object MainForm: TMainForm
       Height = 25
       Caption = 'Stop Stress Test'
       Enabled = False
-      TabOrder = 7
+      TabOrder = 5
       OnClick = BtnStopStressTestClick
     end
   end
