@@ -18,7 +18,7 @@ object MainForm: TMainForm
   TextHeight = 13
   object Splitter1: TSplitter
     Left = 0
-    Top = 115
+    Top = 171
     Width = 532
     Height = 5
     Cursor = crVSplit
@@ -28,9 +28,9 @@ object MainForm: TMainForm
   end
   object MemoLog: TMemo
     Left = 0
-    Top = 120
+    Top = 176
     Width = 532
-    Height = 267
+    Height = 211
     Align = alBottom
     ReadOnly = True
     ScrollBars = ssVertical
@@ -40,10 +40,10 @@ object MainForm: TMainForm
     Left = 0
     Top = 0
     Width = 532
-    Height = 115
+    Height = 171
     Align = alClient
     TabOrder = 1
-    ExplicitHeight = 75
+    ExplicitHeight = 115
     object LabelKey: TLabel
       Left = 16
       Top = 16

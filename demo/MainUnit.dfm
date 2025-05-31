@@ -2,8 +2,8 @@ object MainForm: TMainForm
   Left = 0
   Top = 0
   Caption = 'TestLongPolling'
-  ClientHeight = 380
-  ClientWidth = 420
+  ClientHeight = 559
+  ClientWidth = 594
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -79,6 +79,15 @@ object MainForm: TMainForm
     Caption = 'Stop'
     TabOrder = 5
     OnClick = BtnStopClick
+  end
+  object Button1: TButton
+    Left = 56
+    Top = 376
+    Width = 75
+    Height = 25
+    Caption = 'Write values'
+    TabOrder = 6
+    OnClick = Button1Click
   end
   object Timer1: TTimer
     Enabled = False

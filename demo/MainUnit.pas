@@ -6,7 +6,7 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.StdCtrls, Vcl.ExtCtrls, KeyValueServerUnit, KeyValueHTTPBridgeUnit,
-  SynCommons, SeqloggerClass;
+  SynCommons, SeqloggerClass, Generics.Collections;
 
 type
   TMainForm = class(TForm)
@@ -19,12 +19,14 @@ type
     BtnWriteKV: TButton;
     LabelKey: TLabel;
     LabelValue: TLabel;
+    Button1: TButton;
     procedure BtnStartClick(Sender: TObject);
     procedure BtnStopClick(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure BtnWriteKVClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
   private
     FKV: IKeyValueStore;
     FBridge: TKeyValueHTTPBridge;
@@ -49,8 +51,8 @@ end;
 
 procedure TMainForm.UpdateKVDisplay;
 var
-  Output: TArray<string>;
-  S: string;
+  Output: TArray<TPair<string, variant>>;
+  S: TPair<string, variant>;
 begin
   if not Assigned(LogStrings) then
     Exit;
@@ -59,7 +61,7 @@ begin
     FKV.GetAll(Output);
     LogStrings.Clear;
     for S in Output do
-      LogStrings.Add('  ' + S);
+      LogStrings.Add('  ' + S.Key + '=' + VariantToString(S.Value));
     if LogStrings.Text <> LastLog then
     begin
       LastLog := LogStrings.Text;
@@ -67,7 +69,7 @@ begin
       if Assigned(FKV) then
       begin
         for S in Output do
-          MemoLog.Lines.Add('  ' + S);
+          MemoLog.Lines.Add('  ' + S.Key + '=' + VariantToString(S.Value));
       end;
     end;
   finally
@@ -160,6 +162,20 @@ begin
   TSeqLogger.Logger.Log(Information, Format('Manual key/value write: %s=%s', [Key, ValueStr]));
   Log(Format('Manually wrote: %s=%s', [Key, ValueStr]));
   UpdateKVDisplay;
+end;
+
+procedure TMainForm.Button1Click(Sender: TObject);
+var
+  v: variant;
+  arr: TArray<TPair<string, variant>>;
+begin
+  FKV.SetValue('a', 123);
+  FKV.GetValue('a', v);
+  v := _Obj(['pi', 3.14]);
+  FKV.SetValue('b', v);
+  FKV.GetValue('b', v);
+  FKV.GetAll(arr);
+  v := v;
 end;
 
 end.

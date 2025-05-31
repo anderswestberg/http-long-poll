@@ -22,7 +22,7 @@ type
     function GetValue(const Key: string; out Value: Variant): Boolean;
     procedure SetValue(const Key: string; const Value: Variant; const SourceId: string = '');
     procedure SetValues(const Updates: array of TPair<string, Variant>; const SourceId: string = '');
-    procedure GetAll(var Output: TArray<string>);
+    procedure GetAll(var Output: TArray<TPair<string, variant>>);
     procedure GetChangesSince(LastId: Int64; const SourceId: string; out Changes: TArray<TChangeRecord>);
     function GetOnValueChanged: TKeyValueChangedEvent;
     procedure AddChange(const Key: string; const Value: Variant; const SourceId: string);
@@ -52,7 +52,7 @@ type
     function GetValue(const Key: string; out Value: Variant): Boolean;
     procedure SetValue(const Key: string; const Value: Variant; const SourceId: string = '');
     procedure SetValues(const Updates: array of TPair<string, Variant>; const SourceId: string = '');
-    procedure GetAll(var Output: TArray<string>);
+    procedure GetAll(var Output: TArray<TPair<string, variant>>);
     procedure GetChangesSince(LastId: Int64; const SourceId: string; out Changes: TArray<TChangeRecord>);
     function GetLatestChangeId: Int64;
 
@@ -165,16 +165,16 @@ begin
       FOnValueChanged(Self, Updates[i].Key, StoredValue, SourceId);
 end;
 
-procedure TDictionaryKeyValueStore.GetAll(var Output: TArray<string>);
+procedure TDictionaryKeyValueStore.GetAll(var Output: TArray<TPair<string, variant>>);
 var
   Pair: TPair<string, Variant>;
-  List: TList<string>;
+  List: TList<TPair<string, variant>>;
 begin
-  List := TList<string>.Create;
+  List := TList<TPair<string, variant>>.Create;
   FDataLock.Acquire;
   try
     for Pair in FData do
-      List.Add(Pair.Key + '=' + VarToStr(Pair.Value));
+      List.Add(Pair);
     Output := List.ToArray;
   finally
     FDataLock.Release;

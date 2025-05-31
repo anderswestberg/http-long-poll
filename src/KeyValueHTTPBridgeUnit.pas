@@ -137,7 +137,7 @@ var
   ClientId: string;
   Guid: TGUID;
   Doc: TDocVariantData;
-  AllKeys: TArray<string>;
+  AllKeys: TArray<TPair<string, variant>>;
   KeyValue: string;
   EqPos: Integer;
   Path: string;
@@ -166,17 +166,10 @@ begin
     TSeqLogger.Logger.Log(Information, Format('Client %s requested all keys (%d keys)', [ClientId, Length(AllKeys)]));
     for var i := 0 to High(AllKeys) do
     begin
-      KeyValue := AllKeys[i];
-      EqPos := Pos('=', KeyValue);
-      if EqPos > 0 then
-      begin
-        Key := Copy(KeyValue, 1, EqPos - 1);
-        if FKV.GetValue(Key, Value) then
-          Doc.AddItem(_Obj([
-            'key', Key,
-            'value', Value
-          ]));
-      end;
+      Doc.AddItem(_Obj([
+        'key', AllKeys[i].Key,
+        'value', AllKeys[i].Value
+      ]));
     end;
     ResponseText := string(Doc.ToJSON);
     ResponseCode := 200;
