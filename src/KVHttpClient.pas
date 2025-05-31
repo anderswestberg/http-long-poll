@@ -80,7 +80,7 @@ begin
   try
     Response := FIdHTTP.Get(FBaseUrl + '/data?key=' + TNetEncoding.URL.Encode(Key));
     Doc.InitJSON(RawUTF8(Response));
-    Result := JSONToVariant(string(Doc.GetValueOrNull('value')));
+    Result := Doc.GetValueOrNull('value');
     TSeqLogger.Logger.Log(Information, Format('Client %s read key %s = %s', [FClientId, Key, VarToStr(Result)]));
   except
     on E: Exception do
@@ -126,14 +126,14 @@ begin
   TSeqLogger.Logger.Log(Information, Format('Client %s starting batch write of %d values', [FClientId, Length(KeyValues)]));
   AddClientIdHeader(FIdHTTP);
 
+  Doc.InitArray([]);
+  for Pair in KeyValues do
+    Doc.AddItem(_Obj([
+      'key', Pair.Key,
+      'value', Pair.Value
+    ]));
+  Source := TStringStream.Create(string(Doc.ToJSON), TEncoding.UTF8);
   try
-    Doc.InitArray([]);
-    for Pair in KeyValues do
-      Doc.AddItem(_Obj([
-        'key', Pair.Key,
-        'value', Pair.Value
-      ]));
-    Source := TStringStream.Create(string(Doc.ToJSON), TEncoding.UTF8);
     try
       FIdHTTP.Post(FBaseUrl + '/batch', Source);
       TSeqLogger.Logger.Log(Information, Format('Client %s successfully completed batch write', [FClientId]));
