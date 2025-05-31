@@ -140,6 +140,7 @@ var
   AllKeys: TArray<string>;
   KeyValue: string;
   EqPos: Integer;
+  Path: string;
 begin
   // Get client ID from header or generate one if not present
   ClientId := Args.RequestInfo.RawHeaders.Values['X-Client-ID'];
@@ -149,10 +150,16 @@ begin
     ClientId := GUIDToString(Guid);
   end;
 
+  // Extract path without query parameters
+  Path := URL;
+  EqPos := Pos('?', Path);
+  if EqPos > 0 then
+    Path := Copy(Path, 1, EqPos - 1);
+
   TSeqLogger.Logger.Log(Information, Format('HTTP GET request from client %s: %s', [ClientId, URL]));
 
   // /all - get all key/value pairs
-  if SameText(URL, '/all') then
+  if SameText(Path, '/all') then
   begin
     Doc.InitArray([]);
     FKV.GetAll(AllKeys);
@@ -177,7 +184,7 @@ begin
   end;
 
   // /latest-change-id - get latest change ID
-  if SameText(URL, '/latest-change-id') then
+  if SameText(Path, '/latest-change-id') then
   begin
     var LatestId := FKV.GetLatestChangeId;
     TSeqLogger.Logger.Log(Information, Format('Client %s requested latest change ID: %d', [ClientId, LatestId]));
@@ -190,7 +197,7 @@ begin
   end;
 
   // /data?key=foo - regular GET
-  if SameText(URL, '/data') then
+  if SameText(Path, '/data') then
   begin
     Key := Args.RequestInfo.Params.Values['key'];
     if Key = '' then
@@ -222,7 +229,7 @@ begin
   end;
 
   // /longpoll?since=<id>
-  if SameText(URL, '/longpoll') then
+  if SameText(Path, '/longpoll') then
   begin
     if not TryStrToInt64(Args.RequestInfo.Params.Values['since'], LastId) then
     begin
@@ -258,11 +265,20 @@ var
   Doc: TDocVariantData;
   BatchDoc: TDocVariantData;
   i: Integer;
+  Path: string;
+  EqPos: Integer;
 begin
   ClientId := Args.RequestInfo.RawHeaders.Values['X-Client-ID'];
+
+  // Extract path without query parameters
+  Path := URL;
+  EqPos := Pos('?', Path);
+  if EqPos > 0 then
+    Path := Copy(Path, 1, EqPos - 1);
+
   TSeqLogger.Logger.Log(Information, Format('HTTP POST request from client %s: %s', [ClientId, URL]));
 
-  if SameText(URL, '/data') then
+  if SameText(Path, '/data') then
   begin
     if (BodyVariant <> null) and (BodyVariant <> null) then
     begin
@@ -292,7 +308,7 @@ begin
     Exit;
   end;
 
-  if SameText(URL, '/batch') then
+  if SameText(Path, '/batch') then
   begin
     BatchDoc.InitJSON(RawUTF8(Body));
     if BatchDoc.Kind = dvArray then
