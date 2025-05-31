@@ -14,3 +14,9 @@ KVClientTest/KVHttpClient.dcu
 *.dcu
 
 __recovery/
+
+demo/KVClientTest/KVClienttest.exe
+
+demo/TestLongPoll.exe
+
+demo/TestLongPoll.map
