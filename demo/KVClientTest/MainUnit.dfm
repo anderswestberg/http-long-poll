@@ -111,5 +111,30 @@ object MainForm: TMainForm
       TabOrder = 5
       OnClick = BtnStopLongPollClick
     end
+    object BtnStartStressTest: TButton
+      Left = 44
+      Top = 13
+      Width = 120
+      Height = 25
+      Caption = 'Start Stress Test'
+      TabOrder = 6
+      OnClick = BtnStartStressTestClick
+    end
+    object BtnStopStressTest: TButton
+      Left = 180
+      Top = 13
+      Width = 120
+      Height = 25
+      Caption = 'Stop Stress Test'
+      Enabled = False
+      TabOrder = 7
+      OnClick = BtnStopStressTestClick
+    end
+  end
+  object StressTestTimer: TTimer
+    Enabled = False
+    OnTimer = StressTestTimerTimer
+    Left = 480
+    Top = 8
   end
 end
