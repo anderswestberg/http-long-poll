@@ -4,8 +4,8 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
-  KVHttpClient, KVLongPollThread, Generics.Collections;
+  System.DateUtils, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
+  KVHttpClient, KVLongPollThread, Generics.Collections, SeqloggerClass;
 
 type
   TMainForm = class(TForm)
@@ -59,6 +59,7 @@ var
   AllValues: TArray<TPair<string, Variant>>;
   Pair: TPair<string, Variant>;
 begin
+  TSeqLogger.Logger.Log(Information, 'KVClientTest started');
   FClient := TKVHttpClient.Create('http://localhost:8868');
   FPollThread := nil;
   

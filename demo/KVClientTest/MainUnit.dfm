@@ -18,7 +18,7 @@ object MainForm: TMainForm
   TextHeight = 13
   object Splitter1: TSplitter
     Left = 0
-    Top = 75
+    Top = 115
     Width = 532
     Height = 5
     Cursor = crVSplit
@@ -28,24 +28,22 @@ object MainForm: TMainForm
   end
   object MemoLog: TMemo
     Left = 0
-    Top = 80
+    Top = 120
     Width = 532
-    Height = 307
+    Height = 267
     Align = alBottom
     ReadOnly = True
     ScrollBars = ssVertical
     TabOrder = 0
-    ExplicitTop = 83
   end
   object Panel1: TPanel
     Left = 0
     Top = 0
     Width = 532
-    Height = 75
+    Height = 115
     Align = alClient
     TabOrder = 1
-    ExplicitTop = -3
-    ExplicitHeight = 77
+    ExplicitHeight = 75
     object LabelKey: TLabel
       Left = 16
       Top = 16
@@ -113,7 +111,7 @@ object MainForm: TMainForm
     end
     object BtnStartStressTest: TButton
       Left = 44
-      Top = 13
+      Top = 71
       Width = 120
       Height = 25
       Caption = 'Start Stress Test'
@@ -122,7 +120,7 @@ object MainForm: TMainForm
     end
     object BtnStopStressTest: TButton
       Left = 180
-      Top = 13
+      Top = 71
       Width = 120
       Height = 25
       Caption = 'Stop Stress Test'
