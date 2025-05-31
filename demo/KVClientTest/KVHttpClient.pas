@@ -30,6 +30,8 @@ type
     procedure PostValues(const KeyValues: array of TPair<string, Variant>);
     function LongPoll(SinceId: Int64; out Changes: TArray<TChangeItem>): Boolean;
     procedure CancelLongPoll;
+    function GetLatestChangeId: Int64;
+    function GetAll: TArray<TPair<string, Variant>>;
 
     property BaseUrl: string read FBaseUrl;
     property ClientId: string read FClientId write FClientId;
@@ -174,6 +176,36 @@ begin
     on E: Exception do
       raise;
   end;
+end;
+
+function TKVHttpClient.GetLatestChangeId: Int64;
+var
+  Doc: TDocVariantData;
+begin
+  AddClientIdHeader(FIdHTTP);
+  Doc.InitJSON(RawUTF8(FIdHTTP.Get(FBaseUrl + '/latest-change-id')));
+  Result := Doc.I['id'];
+end;
+
+function TKVHttpClient.GetAll: TArray<TPair<string, Variant>>;
+var
+  Doc: TDocVariantData;
+  i: Integer;
+begin
+  AddClientIdHeader(FIdHTTP);
+  Doc.InitJSON(RawUTF8(FIdHTTP.Get(FBaseUrl + '/all')));
+  if Doc.Kind = dvArray then
+  begin
+    SetLength(Result, Doc.Count);
+    for i := 0 to Doc.Count-1 do
+    begin
+      var Item := TDocVariantData(Doc.Values[i]);
+      Result[i].Key := Item.S['key'];
+      Result[i].Value := Item.GetValueOrNull('value');
+    end;
+  end
+  else
+    SetLength(Result, 0);
 end;
 
 end.

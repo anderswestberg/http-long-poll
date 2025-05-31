@@ -137,6 +137,9 @@ var
   ClientId: string;
   Guid: TGUID;
   Doc: TDocVariantData;
+  AllKeys: TArray<string>;
+  KeyValue: string;
+  EqPos: Integer;
 begin
   // Get client ID from header or generate one if not present
   ClientId := Args.RequestInfo.RawHeaders.Values['X-Client-ID'];
@@ -144,6 +147,41 @@ begin
   begin
     CreateGUID(Guid);
     ClientId := GUIDToString(Guid);
+  end;
+
+  // /all - get all key/value pairs
+  if SameText(URL, '/all') then
+  begin
+    Doc.InitArray([]);
+    FKV.GetAll(AllKeys);
+    for var i := 0 to High(AllKeys) do
+    begin
+      KeyValue := AllKeys[i];
+      EqPos := Pos('=', KeyValue);
+      if EqPos > 0 then
+      begin
+        Key := Copy(KeyValue, 1, EqPos - 1);
+        if FKV.GetValue(Key, Value) then
+          Doc.AddItem(_Obj([
+            'key', Key,
+            'value', Value
+          ]));
+      end;
+    end;
+    ResponseText := string(Doc.ToJSON);
+    ResponseCode := 200;
+    Exit;
+  end;
+
+  // /latest-change-id - get latest change ID
+  if SameText(URL, '/latest-change-id') then
+  begin
+    Doc.InitObject([
+      'id', FKV.GetLatestChangeId
+    ]);
+    ResponseText := string(Doc.ToJSON);
+    ResponseCode := 200;
+    Exit;
   end;
 
   // /data?key=foo - regular GET

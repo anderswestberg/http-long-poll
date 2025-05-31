@@ -2,8 +2,8 @@ object MainForm: TMainForm
   Left = 0
   Top = 0
   Caption = 'KV Client Test'
-  ClientHeight = 330
-  ClientWidth = 611
+  ClientHeight = 387
+  ClientWidth = 532
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -16,77 +16,100 @@ object MainForm: TMainForm
   OnCreate = FormCreate
   PixelsPerInch = 96
   TextHeight = 13
-  object LabelKey: TLabel
-    Left = 16
-    Top = 16
-    Width = 22
-    Height = 13
-    Caption = 'Key:'
-  end
-  object LabelValue: TLabel
-    Left = 200
-    Top = 16
-    Width = 30
-    Height = 13
-    Caption = 'Value:'
+  object Splitter1: TSplitter
+    Left = 0
+    Top = 75
+    Width = 532
+    Height = 5
+    Cursor = crVSplit
+    Align = alBottom
+    Beveled = True
+    ExplicitTop = 77
   end
   object MemoLog: TMemo
-    Left = 16
-    Top = 88
-    Width = 577
-    Height = 220
+    Left = 0
+    Top = 80
+    Width = 532
+    Height = 307
+    Align = alBottom
     ReadOnly = True
     ScrollBars = ssVertical
     TabOrder = 0
+    ExplicitTop = 83
   end
-  object EditKey: TEdit
-    Left = 44
-    Top = 13
-    Width = 120
-    Height = 21
+  object Panel1: TPanel
+    Left = 0
+    Top = 0
+    Width = 532
+    Height = 75
+    Align = alClient
     TabOrder = 1
-  end
-  object EditValue: TEdit
-    Left = 240
-    Top = 13
-    Width = 160
-    Height = 21
-    TabOrder = 2
-  end
-  object BtnWrite: TButton
-    Left = 320
-    Top = 40
-    Width = 80
-    Height = 25
-    Caption = 'Write Key/Val'
-    TabOrder = 3
-    OnClick = BtnWriteClick
-  end
-  object BtnRead: TButton
-    Left = 420
-    Top = 40
-    Width = 80
-    Height = 25
-    Caption = 'Read Key'
-    TabOrder = 4
-    OnClick = BtnReadClick
-  end
-  object BtnStartLongPoll: TButton
-    Left = 44
-    Top = 40
-    Width = 120
-    Height = 25
-    Caption = 'Start Long Poll'
-    TabOrder = 5
-    OnClick = BtnStartLongPollClick
-  end
-  object BtnStopLongPoll: TButton
-    Left = 180
-    Top = 40
-    Width = 120
-    Height = 25
-    Caption = 'Stop Long Poll'
-    TabOrder = 6
-    OnClick = BtnStopLongPollClick
+    ExplicitTop = -3
+    ExplicitHeight = 77
+    object LabelKey: TLabel
+      Left = 16
+      Top = 16
+      Width = 22
+      Height = 13
+      Caption = 'Key:'
+    end
+    object LabelValue: TLabel
+      Left = 200
+      Top = 16
+      Width = 30
+      Height = 13
+      Caption = 'Value:'
+    end
+    object EditKey: TEdit
+      Left = 44
+      Top = 13
+      Width = 120
+      Height = 21
+      TabOrder = 0
+      Text = 'P15.PressureOffset'
+    end
+    object EditValue: TEdit
+      Left = 240
+      Top = 13
+      Width = 160
+      Height = 21
+      TabOrder = 1
+    end
+    object BtnWrite: TButton
+      Left = 320
+      Top = 40
+      Width = 80
+      Height = 25
+      Caption = 'Write Key/Val'
+      TabOrder = 2
+      OnClick = BtnWriteClick
+    end
+    object BtnRead: TButton
+      Left = 420
+      Top = 40
+      Width = 80
+      Height = 25
+      Caption = 'Read Key'
+      TabOrder = 3
+      OnClick = BtnReadClick
+    end
+    object BtnStartLongPoll: TButton
+      Left = 44
+      Top = 40
+      Width = 120
+      Height = 25
+      Caption = 'Start Long Poll'
+      TabOrder = 4
+      OnClick = BtnStartLongPollClick
+    end
+    object BtnStopLongPoll: TButton
+      Left = 180
+      Top = 40
+      Width = 120
+      Height = 25
+      Caption = 'Stop Long Poll'
+      TabOrder = 5
+      OnClick = BtnStopLongPollClick
+    end
   end
 end

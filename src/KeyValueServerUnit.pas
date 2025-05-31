@@ -24,7 +24,9 @@ type
     procedure GetAll(var Output: TArray<string>);
     procedure GetChangesSince(LastId: Int64; const SourceId: string; out Changes: TArray<TChangeRecord>);
     function GetOnValueChanged: TKeyValueChangedEvent;
+    procedure AddChange(const Key: string; const Value: Variant; const SourceId: string);
     procedure SetOnValueChanged(const Value: TKeyValueChangedEvent);
+    function GetLatestChangeId: Int64;
     property OnValueChanged: TKeyValueChangedEvent read GetOnValueChanged write SetOnValueChanged;
   end;
 
@@ -36,7 +38,6 @@ type
     // Change log
     FChangeLog: TList<TChangeRecord>;
     FNextChangeId: Int64;
-    procedure AddChange(const Key: string; const Value: Variant; const SourceId: string);
     procedure PruneChangeLog;
   protected
     function GetOnValueChanged: TKeyValueChangedEvent;
@@ -44,6 +45,7 @@ type
   public
     constructor Create;
     destructor Destroy; override;
+    procedure AddChange(const Key: string; const Value: Variant; const SourceId: string);
 
     // IKeyValueStore implementation
     function GetValue(const Key: string; out Value: Variant): Boolean;
@@ -51,6 +53,7 @@ type
     procedure SetValues(const Updates: array of TPair<string, Variant>; const SourceId: string = '');
     procedure GetAll(var Output: TArray<string>);
     procedure GetChangesSince(LastId: Int64; const SourceId: string; out Changes: TArray<TChangeRecord>);
+    function GetLatestChangeId: Int64;
 
     property OnValueChanged: TKeyValueChangedEvent read GetOnValueChanged write SetOnValueChanged;
     property Data: TDictionary<string, Variant> read FData;
@@ -214,6 +217,19 @@ end;
 procedure TDictionaryKeyValueStore.SetOnValueChanged(const Value: TKeyValueChangedEvent);
 begin
   FOnValueChanged := Value;
+end;
+
+function TDictionaryKeyValueStore.GetLatestChangeId: Int64;
+begin
+  FDataLock.Acquire;
+  try
+    if FChangeLog.Count > 0 then
+      Result := FChangeLog[FChangeLog.Count - 1].ChangeId
+    else
+      Result := 0;
+  finally
+    FDataLock.Release;
+  end;
 end;
 
 end.
