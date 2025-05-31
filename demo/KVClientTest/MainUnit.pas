@@ -33,6 +33,8 @@ type
     FStressTestStartTime: TDateTime;
     FStressTestOps: Integer;
     FStressTestErrors: Integer;
+    FWrittenKeys: TDictionary<string, Boolean>;  // Track which keys have been written
+    FInitialWrites: Integer;  // Track initial writes
     procedure Log(const S: string);
     procedure UpdateStressTestStats;
     procedure OnClientStateChange(Sender: TObject; NewState: TKeyValueClientState);
@@ -53,11 +55,13 @@ begin
   FClient := TKeyValueClient.Create('http://localhost:8868');
   FClient.OnStateChange := OnClientStateChange;
   FClient.OnValueChange := OnClientValueChange;
+  FWrittenKeys := TDictionary<string, Boolean>.Create;
   Log('Client created, waiting for connection...');
 end;
 
 procedure TMainForm.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
+  FWrittenKeys.Free;
   FClient.Free;
 end;
 
@@ -140,7 +144,13 @@ begin
   FStressTestStartTime := Now;
   FStressTestOps := 0;
   FStressTestErrors := 0;
-  StressTestTimer.Interval := 100; // 100ms between operations
+  FWrittenKeys.Clear;
+  FInitialWrites := 0;
+  
+  // Start with a small delay to ensure connection is fully established
+  Sleep(200);
+  
+  StressTestTimer.Interval := 50; // Change from 10ms to 50ms for better stability
   StressTestTimer.Enabled := True;
   BtnStartStressTest.Enabled := False;
   BtnStopStressTest.Enabled := True;
@@ -176,28 +186,118 @@ var
   Op: Integer;
   Key: string;
   Value: Variant;
+  i: Integer;
+  BatchUpdates: TArray<TPair<string, Variant>>;
+  BatchSize: Integer;
+  ReadCount: Integer;
 begin
-  try
-    Op := Random(2); // 0 = read, 1 = write
-    Key := Format('stress.test.%d', [Random(10)]); // Use 10 different keys
+  // Only perform operations when client is connected
+  if FClient.State <> kvsConnected then
+  begin
+    Log('[Stress Test] Waiting for client to connect...');
+    Exit;
+  end;
 
-    if Op = 0 then
+  try
+    // Initial phase: Write to first 5 keys to ensure we have data
+    if FInitialWrites < 5 then
     begin
-      // Read operation
-      Value := FClient.GetValue(Key);
-      Inc(FStressTestOps);
+      SetLength(BatchUpdates, 5 - FInitialWrites);
+      BatchSize := 0;
+      
+      for i := 0 to 4 do
+      begin
+        Key := Format('stress.test.%d', [i]);
+        if not FWrittenKeys.ContainsKey(Key) then
+        begin
+          Value := Format('initial-value-%d-%d', [i, FStressTestOps]);
+          BatchUpdates[BatchSize] := TPair<string, Variant>.Create(Key, Value);
+          Inc(BatchSize);
+          FWrittenKeys.AddOrSetValue(Key, True);
+          Inc(FInitialWrites);
+        end;
+      end;
+      
+      if BatchSize > 0 then
+      begin
+        SetLength(BatchUpdates, BatchSize);
+        try
+          FClient.SetValues(BatchUpdates);
+          Inc(FStressTestOps, BatchSize);
+          Log(Format('[Stress Test] Initial batch write: %d keys', [BatchSize]));
+        except
+          on E: Exception do
+          begin
+            Inc(FStressTestErrors);
+            Log('[Stress Test Error] Initial batch write failed: ' + E.Message);
+            Dec(FInitialWrites, BatchSize); // Rollback the writes that failed
+            for i := 0 to BatchSize - 1 do
+              FWrittenKeys.Remove(BatchUpdates[i].Key);
+          end;
+        end;
+      end;
+      
       if (FStressTestOps mod 100) = 0 then
         UpdateStressTestStats;
-    end
-    else
-    begin
-      // Write operation
-      Value := Format('value-%d-%d', [Random(1000), FStressTestOps]);
-      FClient.SetValue(Key, Value);
-      Inc(FStressTestOps);
-      if (FStressTestOps mod 100) = 0 then
-        UpdateStressTestStats;
+      Exit;
     end;
+
+    // After initial phase, do multiple operations per timer tick
+    SetLength(BatchUpdates, 3); // Reduce from 5 to 3 operations per tick
+    BatchSize := 0;
+    ReadCount := 0;
+    
+    for i := 1 to 3 do // Reduce from 5 to 3 iterations
+    begin
+      Key := Format('stress.test.%d', [Random(10)]);
+
+      // Ensure we do some reads (at least 1 per batch)
+      if (not FWrittenKeys.ContainsKey(Key)) or 
+         ((Random(2) = 1) and (ReadCount < 2)) then // Allow max 2 reads per batch
+      begin
+        // Write operation
+        Value := Format('value-%d-%d', [Random(1000), FStressTestOps]);
+        BatchUpdates[BatchSize] := TPair<string, Variant>.Create(Key, Value);
+        Inc(BatchSize);
+        FWrittenKeys.AddOrSetValue(Key, True);
+      end
+      else
+      begin
+        // Read operation
+        try
+          Value := FClient.GetValue(Key);
+          Inc(ReadCount);
+        except
+          on E: Exception do
+          begin
+            Inc(FStressTestErrors);
+            Log('[Stress Test Error] Read failed: ' + E.Message);
+          end;
+        end;
+      end;
+      Inc(FStressTestOps);
+    end;
+
+    // Send batch updates if any
+    if BatchSize > 0 then
+    begin
+      SetLength(BatchUpdates, BatchSize);
+      try
+        FClient.SetValues(BatchUpdates);
+      except
+        on E: Exception do
+        begin
+          Inc(FStressTestErrors);
+          Log('[Stress Test Error] Batch write failed: ' + E.Message);
+          // Remove the keys that failed to write
+          for i := 0 to BatchSize - 1 do
+            FWrittenKeys.Remove(BatchUpdates[i].Key);
+        end;
+      end;
+    end;
+
+    if (FStressTestOps mod 100) = 0 then
+      UpdateStressTestStats;
   except
     on E: Exception do
     begin
@@ -208,4 +308,5 @@ begin
 end;
 
 end.
+
 

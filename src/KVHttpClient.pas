@@ -3,8 +3,9 @@ unit KVHttpClient;
 interface
 
 uses
-  System.Classes, System.SysUtils, IdHTTP, IdComponent, IdStack, IdExceptionCore, System.JSON, NetEncoding,
-  SynCommons, Generics.Collections, System.Variants, SeqloggerClass;
+  System.Classes, System.SysUtils, IdHTTP, IdComponent, IdStack, IdExceptionCore,
+  IdIOHandlerStack, System.JSON, NetEncoding, SynCommons, Generics.Collections,
+  System.Variants, SeqloggerClass;
 
 type
   TChangeItem = record
@@ -45,11 +46,21 @@ constructor TKVHttpClient.Create(const BaseUrl: string);
 begin
   inherited Create;
   FBaseUrl := BaseUrl;
+  
+  // Create and configure regular HTTP client
   FIdHTTP := TIdHTTP.Create(nil);
-  FIdHTTP.ConnectTimeout := 3000;
+  FIdHTTP.IOHandler := TIdIOHandlerStack.Create(FIdHTTP);
+  FIdHTTP.ConnectTimeout := 1000;  // Reduced from 3000
+  FIdHTTP.ReadTimeout := 2000;     // Reduced from 5000
+  FIdHTTP.IOHandler.MaxLineLength := 16384;
+  
+  // Create and configure long polling HTTP client
   FIdHTTP_LongPoll := TIdHTTP.Create(nil);
-  FIdHTTP_LongPoll.ConnectTimeout := 3000;
-  FIdHTTP_LongPoll.ReadTimeout := 32000; // For long polling
+  FIdHTTP_LongPoll.IOHandler := TIdIOHandlerStack.Create(FIdHTTP_LongPoll);
+  FIdHTTP_LongPoll.ConnectTimeout := 1000;  // Reduced from 3000
+  FIdHTTP_LongPoll.ReadTimeout := 32000;    // Keep long poll timeout the same
+  FIdHTTP_LongPoll.IOHandler.MaxLineLength := 16384;
+  
   FClientId := ''; // Empty by default
   TSeqLogger.Logger.Log(Information, Format('HTTP client created for %s', [BaseUrl]));
 end;

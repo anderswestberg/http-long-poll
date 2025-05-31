@@ -20,3 +20,5 @@ demo/KVClientTest/KVClienttest.exe
 demo/TestLongPoll.exe
 
 demo/TestLongPoll.map
+
+demo/KVClientTest/KVClienttest.map

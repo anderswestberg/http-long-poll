@@ -117,7 +117,7 @@ end;
 
 procedure TMainForm.Timer1Timer(Sender: TObject);
 begin
-  UpdateKVDisplay;
+  //UpdateKVDisplay;
 end;
 
 procedure TMainForm.BtnWriteKVClick(Sender: TObject);

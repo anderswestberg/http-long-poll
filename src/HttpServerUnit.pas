@@ -3,7 +3,8 @@ unit HTTPServerUnit;
 interface
 
 uses
-  System.Classes, IdHTTPServer, IdContext, IdCustomHTTPServer, System.SysUtils, System.NetEncoding, System.Variants, SynCommons;
+  System.Classes, IdHTTPServer, IdContext, IdCustomHTTPServer, IdCustomTCPServer,
+  System.SysUtils, System.NetEncoding, System.Variants, SynCommons;
 
 type
   THTTPCommandArgs = record

@@ -176,11 +176,14 @@ begin
           // Test connection by getting latest change ID
           FLastSeenId := FClient.GetLatestChangeId;
           
-          SetState(kvsConnected);
-          TSeqLogger.Logger.Log(Information, Format('KeyValueClient connected to %s', [FBaseUrl]));
-
           // Start long polling
           StartLongPoll;
+          
+          // Small delay to ensure everything is initialized
+          Sleep(100);
+          
+          SetState(kvsConnected);
+          TSeqLogger.Logger.Log(Information, Format('KeyValueClient connected to %s', [FBaseUrl]));
         finally
           FLock.Release;
         end;
