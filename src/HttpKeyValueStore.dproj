@@ -49,6 +49,7 @@
         <DCCReference Include="client\KeyValueClient.pas"/>
         <DCCReference Include="client\KeyValueHttpClient.pas"/>
         <DCCReference Include="common\VariantUtils.pas"/>
+        <DCCReference Include="common\ChangeRecordPool.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

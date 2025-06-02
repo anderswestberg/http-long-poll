@@ -42,7 +42,8 @@ contains
   SeqLogger in 'common\SeqLogger.pas',
   KeyValueClient in 'client\KeyValueClient.pas',
   KeyValueHttpClient in 'client\KeyValueHttpClient.pas',
-  VariantUtils in 'common\VariantUtils.pas';
+  VariantUtils in 'common\VariantUtils.pas',
+  ChangeRecordPool in 'common\ChangeRecordPool.pas';
 
 end.
 

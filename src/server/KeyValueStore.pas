@@ -4,16 +4,9 @@ interface
 
 uses
   System.SysUtils, System.Classes, System.Generics.Collections, System.SyncObjs, System.Variants,
-  SeqLogger;
+  SeqLogger, ChangeRecordPool;
 
 type
-  TChangeRecord = class
-    ChangeId: Int64;
-    Timestamp: TDateTime;
-    Key: string;
-    Value: Variant;
-    SourceId: string;
-  end;
 
   TKeyValueChangedEvent = procedure(Sender: TObject; const Key: string; const Value: Variant; const SourceId: string) of object;
 
@@ -88,8 +81,13 @@ begin
 end;
 
 destructor TDictionaryKeyValueStore.Destroy;
+var
+  i: Integer;
 begin
   TSeqLogger.Logger.Log(Information, 'Key/Value store destroyed');
+  // Return all change records to the pool
+  for i := 0 to FChangeLog.Count - 1 do
+    _ChangeRecordPool.Release(FChangeLog[i]);
   FChangeLog.Free;
   FDataLock.Free;
   FData.Free;
@@ -186,7 +184,7 @@ procedure TDictionaryKeyValueStore.AddChange(const Key: string; const Value: Var
 var
   Change: TChangeRecord;
 begin
-  Change := TChangeRecord.Create;
+  Change := _ChangeRecordPool.Acquire;
   Change.ChangeId := FNextChangeId;
   Inc(FNextChangeId);
   Change.Timestamp := Now;
@@ -199,13 +197,25 @@ end;
 
 procedure TDictionaryKeyValueStore.PruneChangeLog;
 var
-  PrunedCount: Integer;
+  PrunedCount, i: Integer;
+  OldRecords: TArray<TChangeRecord>;
 begin
   PrunedCount := FChangeLog.Count - CHANGELOG_PRUNE_COUNT;
   if PrunedCount > 0 then
   begin
+    // Save references to records we'll remove
+    SetLength(OldRecords, PrunedCount);
+    for i := 0 to PrunedCount - 1 do
+      OldRecords[i] := FChangeLog[i];
+
+    // Remove old records from changelog
     while FChangeLog.Count > CHANGELOG_PRUNE_COUNT do
-      FChangeLog.Delete(0); // delete oldest
+      FChangeLog.Delete(0);
+
+    // Return old records to the pool
+    for i := 0 to PrunedCount - 1 do
+      _ChangeRecordPool.Release(OldRecords[i]);
+
     TSeqLogger.Logger.Log(Information, 'Store: Pruned {Count} old changes from changelog', ['Count', PrunedCount]);
   end;
 end;

@@ -7,7 +7,8 @@ uses
   KeyValueHttpBridge in '..\src\server\KeyValueHttpBridge.pas',
   KeyValueStore in '..\src\server\KeyValueStore.pas',
   SeqLogger in '..\src\common\SeqLogger.pas',
-  VariantUtils in '..\src\common\VariantUtils.pas';
+  VariantUtils in '..\src\common\VariantUtils.pas',
+  ChangeRecordPool in '..\src\common\ChangeRecordPool.pas';
 
 {$R *.res}
 

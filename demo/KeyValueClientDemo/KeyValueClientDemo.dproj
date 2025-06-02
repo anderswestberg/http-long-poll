@@ -104,6 +104,7 @@
         <DCCReference Include="..\..\src\client\KeyValueClient.pas"/>
         <DCCReference Include="..\..\src\client\KeyValueHttpClient.pas"/>
         <DCCReference Include="..\..\src\common\VariantUtils.pas"/>
+        <DCCReference Include="..\..\src\common\ChangeRecordPool.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

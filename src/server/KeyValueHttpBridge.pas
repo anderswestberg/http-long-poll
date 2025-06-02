@@ -5,7 +5,7 @@ interface
 uses
   System.Types, System.Classes, System.SysUtils, IdCustomHTTPServer,
   HttpServer, KeyValueStore, IdStack, System.SyncObjs, System.Generics.Collections,
-  SynCommons, SeqLogger;
+  SynCommons, SeqLogger, ChangeRecordPool;
 
 type
   TKeyValueHTTPBridge = class

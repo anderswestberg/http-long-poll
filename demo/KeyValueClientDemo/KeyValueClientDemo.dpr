@@ -6,7 +6,8 @@ uses
   SeqLogger in '..\..\src\common\SeqLogger.pas',
   KeyValueClient in '..\..\src\client\KeyValueClient.pas',
   KeyValueHttpClient in '..\..\src\client\KeyValueHttpClient.pas',
-  VariantUtils in '..\..\src\common\VariantUtils.pas';
+  VariantUtils in '..\..\src\common\VariantUtils.pas',
+  ChangeRecordPool in '..\..\src\common\ChangeRecordPool.pas';
 
 {$R *.res}
 
