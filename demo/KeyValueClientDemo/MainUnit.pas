@@ -16,11 +16,12 @@ type
     FErrors: Integer;
     FLog: TStrings;
     FWrittenKeys: TDictionary<string, Boolean>;
+    FClientId: string;
     procedure LogMessage(const Msg: string);
     procedure UpdateStats;
     procedure Execute; override;
   public
-    constructor Create(AClient: TKeyValueClient; ALog: TStrings);
+    constructor Create(AClient: TKeyValueClient; ALog: TStrings; const AClientId: string);
     destructor Destroy; override;
     property Operations: Integer read FOperations;
     property Errors: Integer read FErrors;
@@ -39,6 +40,7 @@ type
     BtnStartStressTest: TButton;
     BtnStopStressTest: TButton;
     LabelStatus: TLabel;
+    LabelInstanceInfo: TLabel;
     procedure BtnWriteClick(Sender: TObject);
     procedure BtnReadClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -48,6 +50,7 @@ type
   private
     FClient: TKeyValueClient;
     FStressTest: TStressTestThread;
+    FClientId: string;
     procedure Log(const S: string);
     procedure OnClientStateChange(Sender: TObject; NewState: TKeyValueClientState);
     procedure OnClientValueChange(Sender: TObject; const Key: string; const Value: Variant);
@@ -64,11 +67,12 @@ implementation
 
 { TStressTestThread }
 
-constructor TStressTestThread.Create(AClient: TKeyValueClient; ALog: TStrings);
+constructor TStressTestThread.Create(AClient: TKeyValueClient; ALog: TStrings; const AClientId: string);
 begin
   inherited Create(True); // Create suspended
   FClient := AClient;
   FLog := ALog;
+  FClientId := AClientId;
   FWrittenKeys := TDictionary<string, Boolean>.Create;
   FStartTime := 0;
   FOperations := 0;
@@ -126,13 +130,13 @@ begin
   LastStatsUpdate := FStartTime;
   LogMessage('Starting stress test...');
 
-  // Initialize first 5 keys
+  // Initialize first 5 keys with client-specific prefix
   for i := 0 to 4 do
   begin
     if Terminated then
       Exit;
 
-    Key := Format('stress.test.%d', [i]);
+    Key := Format('%s.stress.test.%d', [FClientId, i]);
     Value := Format('initial-value-%d', [i]);
     try
       FClient.SetValue(Key, Value);
@@ -155,7 +159,7 @@ begin
     if Random(2) = 0 then
     begin
       // Read operation
-      Key := Format('stress.test.%d', [Random(5)]);
+      Key := Format('%s.stress.test.%d', [FClientId, Random(5)]);
       try
         Value := FClient.GetValue(Key);
         Inc(FOperations);
@@ -171,7 +175,7 @@ begin
     else
     begin
       // Write operation
-      Key := Format('stress.test.%d', [Random(5)]);
+      Key := Format('%s.stress.test.%d', [FClientId, Random(5)]);
       Value := Format('value-%d', [Random(1000)]);
       try
         FClient.SetValue(Key, Value);
@@ -206,9 +210,40 @@ end;
 { TMainForm }
 
 procedure TMainForm.FormCreate(Sender: TObject);
+var
+  Params: TStringList;
+  ServerPort: Integer;
 begin
-  TSeqLogger.Logger.Log(Information, 'KeyValue Client Demo started');
-  FClient := TKeyValueClient.Create('http://localhost:8868');
+  // Parse command line parameters
+  Params := TStringList.Create;
+  try
+    Params.Delimiter := ' ';
+    Params.DelimitedText := GetCommandLine;
+    
+    // Get client ID from command line or generate one
+    if (Params.Count >= 2) and (Params[1] <> '') then
+      FClientId := Params[1]
+    else
+    begin
+      var Guid: TGUID;
+      CreateGUID(Guid);
+      FClientId := Copy(GUIDToString(Guid), 2, 8); // Use first 8 chars of GUID
+    end;
+
+    // Get server port from command line or use default
+    if (Params.Count >= 3) and TryStrToInt(Params[2], ServerPort) then
+      ServerPort := StrToInt(Params[2])
+    else
+      ServerPort := 8868;
+
+    Caption := Format('Key-Value Client Demo - Instance %s', [FClientId]);
+    LabelInstanceInfo.Caption := Format('Instance ID: %s, Server Port: %d', [FClientId, ServerPort]);
+  finally
+    Params.Free;
+  end;
+
+  TSeqLogger.Logger.Log(Information, 'KeyValue Client Demo started - Instance {ClientId}', ['ClientId', FClientId]);
+  FClient := TKeyValueClient.Create(Format('http://localhost:%d', [ServerPort]));
   FClient.OnStateChange := OnClientStateChange;
   FClient.OnValueChange := OnClientValueChange;
   Log('Client created, waiting for connection...');
@@ -317,7 +352,7 @@ procedure TMainForm.BtnStartStressTestClick(Sender: TObject);
 begin
   if not Assigned(FStressTest) then
   begin
-    FStressTest := TStressTestThread.Create(FClient, MemoLog.Lines);
+    FStressTest := TStressTestThread.Create(FClient, MemoLog.Lines, FClientId);
     FStressTest.Start;
     BtnStartStressTest.Enabled := False;
     BtnStopStressTest.Enabled := True;
