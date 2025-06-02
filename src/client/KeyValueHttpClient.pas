@@ -21,7 +21,11 @@ type
     FIdHTTP: TIdHTTP;
     FIdHTTP_LongPoll: TIdHTTP;
     FClientId: string;
+    FEncodedClientId: string;
+    FStringStream: TStringStream;
+    FDoc: TDocVariantData;
     procedure AddClientIdHeader(HTTP: TIdHTTP);
+    procedure UpdateEncodedClientId;
   public
     constructor Create(const BaseUrl: string);
     destructor Destroy; override;
@@ -47,29 +51,35 @@ begin
   inherited Create;
   FBaseUrl := BaseUrl;
   
+  // Create reusable objects
+  FStringStream := TStringStream.Create('', TEncoding.UTF8);
+  
   // Create and configure regular HTTP client
   FIdHTTP := TIdHTTP.Create(nil);
   FIdHTTP.IOHandler := TIdIOHandlerStack.Create(FIdHTTP);
-  FIdHTTP.ConnectTimeout := 5000;  // Increased for reliability
-  FIdHTTP.ReadTimeout := 10000;    // Increased for reliability
+  FIdHTTP.ConnectTimeout := 5000;  // Keep original timeouts
+  FIdHTTP.ReadTimeout := 10000;    // Keep original timeouts
   FIdHTTP.IOHandler.MaxLineLength := 16384;
   FIdHTTP.AllowCookies := False;   // Don't need cookies
   FIdHTTP.HandleRedirects := False; // Don't need redirects
   FIdHTTP.ProtocolVersion := pv1_1; // Use HTTP/1.1 for keep-alive
   FIdHTTP.Request.Connection := 'keep-alive';
+  FIdHTTP.HTTPOptions := FIdHTTP.HTTPOptions + [hoKeepOrigProtocol, hoNoProtocolErrorException];
   
   // Create and configure long polling HTTP client
   FIdHTTP_LongPoll := TIdHTTP.Create(nil);
   FIdHTTP_LongPoll.IOHandler := TIdIOHandlerStack.Create(FIdHTTP_LongPoll);
-  FIdHTTP_LongPoll.ConnectTimeout := 5000;  // Increased for reliability
+  FIdHTTP_LongPoll.ConnectTimeout := 5000;  // Keep original timeouts
   FIdHTTP_LongPoll.ReadTimeout := 32000;    // Keep long poll timeout
   FIdHTTP_LongPoll.IOHandler.MaxLineLength := 16384;
   FIdHTTP_LongPoll.AllowCookies := False;   // Don't need cookies
   FIdHTTP_LongPoll.HandleRedirects := False; // Don't need redirects
   FIdHTTP_LongPoll.ProtocolVersion := pv1_1; // Use HTTP/1.1 for keep-alive
   FIdHTTP_LongPoll.Request.Connection := 'keep-alive';
+  FIdHTTP_LongPoll.HTTPOptions := FIdHTTP_LongPoll.HTTPOptions + [hoKeepOrigProtocol, hoNoProtocolErrorException];
   
   FClientId := ''; // Empty by default
+  FEncodedClientId := '';
   TSeqLogger.Logger.Log(Information, 'HTTP client created for {BaseUrl}', ['BaseUrl', BaseUrl]);
 end;
 
@@ -79,7 +89,16 @@ begin
   CancelLongPoll;
   FIdHTTP.Free;
   FIdHTTP_LongPoll.Free;
+  FStringStream.Free;
   inherited;
+end;
+
+procedure TKVHttpClient.UpdateEncodedClientId;
+begin
+  if FClientId <> '' then
+    FEncodedClientId := '?clientId=' + TNetEncoding.URL.Encode(FClientId)
+  else
+    FEncodedClientId := '';
 end;
 
 procedure TKVHttpClient.AddClientIdHeader(HTTP: TIdHTTP);
@@ -89,20 +108,17 @@ end;
 
 function TKVHttpClient.GetValue(const Key: string): Variant;
 var
-  Doc: TDocVariantData;
   Response: string;
   Url: string;
 begin
-  TSeqLogger.Logger.Log(Information, 'Client {ClientId} reading key {Key}', ['ClientId', FClientId, 'Key', Key]);
   AddClientIdHeader(FIdHTTP);  // Use regular client
   try
     Url := FBaseUrl + '/values?key=' + TNetEncoding.URL.Encode(Key);
-    if FClientId <> '' then
-      Url := Url + '&clientId=' + TNetEncoding.URL.Encode(FClientId);
+    if FEncodedClientId <> '' then
+      Url := Url + '&clientId=' + FEncodedClientId;
     Response := FIdHTTP.Get(Url);
-    Doc.InitJSON(RawUTF8(Response));
-    Result := Doc.GetValueOrNull('value');
-    TSeqLogger.Logger.Log(Information, 'Client {ClientId} read key {Key} = {Value}', ['ClientId', FClientId, 'Key', Key, 'Value', VarToStr(Result)]);
+    FDoc.InitJSON(RawUTF8(Response));
+    Result := FDoc.GetValueOrNull('value');
   except
     on E: Exception do
     begin
@@ -114,24 +130,22 @@ end;
 
 procedure TKVHttpClient.PostValue(const Key: string; const Value: Variant);
 var
-  Doc: TDocVariantData;
-  Source: TStringStream;
   Url: string;
 begin
-  TSeqLogger.Logger.Log(Information, 'Client {ClientId} writing key {Key} = {Value}', ['ClientId', FClientId, 'Key', Key, 'Value', VarToStr(Value)]);
   AddClientIdHeader(FIdHTTP);
   
-  Doc.InitObject([
+  FDoc.InitObject([
     'key', Key,
     'value', Value
   ]);
-  Source := TStringStream.Create(string(Doc.ToJSON), TEncoding.UTF8);
+  
+  FStringStream.Size := 0;
+  FStringStream.WriteString(string(FDoc.ToJSON));
+  FStringStream.Position := 0;
+  
   try
-    Url := FBaseUrl + '/values';
-    if FClientId <> '' then
-      Url := Url + '?clientId=' + TNetEncoding.URL.Encode(FClientId);
-    FIdHTTP.Post(Url, Source);
-    TSeqLogger.Logger.Log(Information, 'Client {ClientId} successfully wrote key {Key}', ['ClientId', FClientId, 'Key', Key]);
+    Url := FBaseUrl + '/values' + FEncodedClientId;
+    FIdHTTP.Post(Url, FStringStream);
   except
     on E: Exception do
     begin
@@ -139,7 +153,6 @@ begin
       raise;
     end;
   end;
-  Source.Free;
 end;
 
 procedure TKVHttpClient.PostValues(const KeyValues: array of TPair<string, Variant>);
@@ -161,9 +174,7 @@ begin
   Source := TStringStream.Create(string(Doc.ToJSON), TEncoding.UTF8);
   try
     try
-      Url := FBaseUrl + '/values/batch';
-      if FClientId <> '' then
-        Url := Url + '?clientId=' + TNetEncoding.URL.Encode(FClientId);
+      Url := FBaseUrl + '/values/batch' + FEncodedClientId;
       FIdHTTP.Post(Url, Source);
       TSeqLogger.Logger.Log(Information, 'Client {ClientId} successfully completed batch write', ['ClientId', FClientId]);
     except
@@ -205,8 +216,8 @@ begin
   try
     AddClientIdHeader(FIdHTTP_LongPoll);
     Url := FBaseUrl + '/changes?since=' + IntToStr(SinceId);
-    if FClientId <> '' then
-      Url := Url + '&clientId=' + TNetEncoding.URL.Encode(FClientId);
+    if FEncodedClientId <> '' then
+      Url := Url + '&clientId=' + FEncodedClientId;
     Resp := FIdHTTP_LongPoll.Get(Url);
     if Resp <> '' then
     begin
@@ -271,9 +282,7 @@ begin
   TSeqLogger.Logger.Log(Information, 'Client {ClientId} requesting latest change ID', ['ClientId', FClientId]);
   AddClientIdHeader(FIdHTTP);
   try
-    Url := FBaseUrl + '/changes/latest';
-    if FClientId <> '' then
-      Url := Url + '?clientId=' + TNetEncoding.URL.Encode(FClientId);
+    Url := FBaseUrl + '/changes/latest' + FEncodedClientId;
     Doc.InitJSON(RawUTF8(FIdHTTP.Get(Url)));
     Result := Doc.I['id'];
     TSeqLogger.Logger.Log(Information, 'Client {ClientId} received latest change ID: {ChangeId}', ['ClientId', FClientId, 'ChangeId', Result]);
@@ -295,9 +304,7 @@ begin
   TSeqLogger.Logger.Log(Information, 'Client {ClientId} requesting all values', ['ClientId', FClientId]);
   AddClientIdHeader(FIdHTTP);
   try
-    Url := FBaseUrl + '/values/all';
-    if FClientId <> '' then
-      Url := Url + '?clientId=' + TNetEncoding.URL.Encode(FClientId);
+    Url := FBaseUrl + '/values/all' + FEncodedClientId;
     Doc.InitJSON(RawUTF8(FIdHTTP.Get(Url)));
     if Doc.Kind = dvArray then
     begin

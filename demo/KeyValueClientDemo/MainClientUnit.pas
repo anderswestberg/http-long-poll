@@ -138,6 +138,9 @@ var
   Value: Variant;
   i: Integer;
   LastStatsUpdate: TDateTime;
+  BatchSize: Integer;
+  BatchValues: array of TPair<string, Variant>;
+  WriteMode: Boolean;
 begin
   // Wait for client to be connected
   while not FTerminating and not Terminated and (FClient.State <> kvsConnected) do
@@ -152,8 +155,11 @@ begin
   FStartTime := Now;
   LastStatsUpdate := FStartTime;
   LogMessage('Starting stress test...');
+  BatchSize := 20; // Increased batch size
+  WriteMode := True; // Start with writes
 
   // Initialize first 5 keys with client-specific prefix
+  SetLength(BatchValues, 5);
   for i := 0 to 4 do
   begin
     if FTerminating or Terminated then
@@ -161,37 +167,47 @@ begin
 
     Key := Format('%s.stress.test.%d', [FClientId, i]);
     Value := Format('initial-value-%d', [i]);
-    try
-      if not FTerminating and not Terminated then
-      begin
-        FClient.SetValue(Key, Value);
-        FWrittenKeys.Add(Key, True);
-        Inc(FOperations);
-        LogMessage(Format('[Stress Test] Initial write: %s = %s', [Key, VarToStr(Value)]));
-      end;
-    except
-      on E: Exception do
-      begin
-        Inc(FErrors);
-        LogMessage('[Stress Test Error] ' + E.Message);
-      end;
+    BatchValues[i].Key := Key;
+    BatchValues[i].Value := Value;
+    FWrittenKeys.Add(Key, True);
+  end;
+
+  try
+    if not FTerminating and not Terminated then
+    begin
+      FClient.SetValues(BatchValues);
+      Inc(FOperations, Length(BatchValues));
+      LogMessage(Format('[Stress Test] Initial batch write: %d values', [Length(BatchValues)]));
+    end;
+  except
+    on E: Exception do
+    begin
+      Inc(FErrors);
+      LogMessage('[Stress Test Error] ' + E.Message);
     end;
   end;
 
   // Main test loop
+  SetLength(BatchValues, BatchSize);
   while not FTerminating and not Terminated do
   begin
-    // Randomly choose between read and write
-    if Random(2) = 0 then
+    if WriteMode then
     begin
-      // Read operation
-      Key := Format('%s.stress.test.%d', [FClientId, Random(5)]);
+      // Prepare batch of writes
+      for i := 0 to BatchSize - 1 do
+      begin
+        Key := Format('%s.stress.test.%d', [FClientId, Random(5)]);
+        Value := Format('value-%d', [Random(1000)]);
+        BatchValues[i].Key := Key;
+        BatchValues[i].Value := Value;
+      end;
+
+      // Execute batch write
       try
         if not FTerminating and not Terminated then
         begin
-          Value := FClient.GetValue(Key);
-          Inc(FOperations);
-          LogMessage(Format('[Stress Test] Read %s = %s', [Key, VarToStr(Value)]));
+          FClient.SetValues(BatchValues);
+          Inc(FOperations, BatchSize);
         end;
       except
         on E: Exception do
@@ -203,25 +219,28 @@ begin
     end
     else
     begin
-      // Write operation
-      Key := Format('%s.stress.test.%d', [FClientId, Random(5)]);
-      Value := Format('value-%d', [Random(1000)]);
-      try
-        if not FTerminating and not Terminated then
-        begin
-          FClient.SetValue(Key, Value);
-          FWrittenKeys.AddOrSetValue(Key, True);
+      // Do a batch of reads (can't actually batch them, but we'll do them in sequence)
+      for i := 0 to BatchSize - 1 do
+      begin
+        if FTerminating or Terminated then
+          Break;
+          
+        Key := Format('%s.stress.test.%d', [FClientId, Random(5)]);
+        try
+          Value := FClient.GetValue(Key);
           Inc(FOperations);
-          LogMessage(Format('[Stress Test] Write %s = %s', [Key, VarToStr(Value)]));
-        end;
-      except
-        on E: Exception do
-        begin
-          Inc(FErrors);
-          LogMessage('[Stress Test Error] ' + E.Message);
+        except
+          on E: Exception do
+          begin
+            Inc(FErrors);
+            LogMessage('[Stress Test Error] ' + E.Message);
+          end;
         end;
       end;
     end;
+
+    // Toggle between read and write modes
+    WriteMode := not WriteMode;
 
     // Update stats every 5 seconds
     if SecondsBetween(Now, LastStatsUpdate) >= 5 then
@@ -229,9 +248,6 @@ begin
       UpdateStats;
       LastStatsUpdate := Now;
     end;
-
-    // Small delay to prevent overwhelming the server
-    Sleep(5);
   end;
 
   // Final stats update

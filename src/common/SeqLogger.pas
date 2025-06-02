@@ -25,6 +25,7 @@ type
     FFlushTimeout: Integer;
     FEnabled: Boolean;
     FMinLogLevel: TLogLevel;
+    FApplicationName: string;
 
     procedure SendBatch; // Sends logs in batches
     function FormatMessage(const Template: string; const Values: array of Variant): string;
@@ -43,6 +44,7 @@ type
     class function Logger: TSeqLogger; static;
     property Enabled: Boolean read FEnabled write FEnabled;
     property MinLogLevel: TLogLevel read FMinLogLevel write FMinLogLevel;
+    property ApplicationName: string read FApplicationName write FApplicationName;
   end;
 
 implementation
@@ -62,6 +64,7 @@ begin
   FFlushTimeout := FlushTimeout;
   FEnabled := True; // Default to enabled
   FMinLogLevel := Information; // Default to Information level
+  FApplicationName := ExtractFileName(ParamStr(0)); // Set application name from executable
 
   // Initialize HTTP client
   FHttp := TIdHTTP.Create(nil);
@@ -110,7 +113,7 @@ begin
   FTimer.Start;
 
   // Log program start information
-  Log(Information, 'Program started: Name: {AppName}, Version: {Version}, User: {User}', ['AppName', ExtractFileName(ParamStr(0)), 'Version', '1.0.0', 'User', GetEnvironmentVariable('USERNAME')]);
+  Log(Information, 'Program started: Version: {Version}, User: {User}', ['Version', '1.0.0', 'User', GetEnvironmentVariable('USERNAME')]);
 end;
 
 // Destructor to clean up resources
@@ -179,6 +182,7 @@ begin
     LogEntry.AddPair('@t', DateToISO8601(Now));
     LogEntry.AddPair('@l', LogLevelToString(Level));
     LogEntry.AddPair('@m', MessageText);
+    LogEntry.AddPair('Application', FApplicationName);
 
     // Flatten properties
     if Assigned(Properties) then
