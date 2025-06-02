@@ -30,3 +30,7 @@ demo/KeyValueClientDemo/KeyValueClientDemo.map
 demo/KeyValueServerDemo.exe
 
 demo/KeyValueServerDemo.map
+
+demo/KeyValueClientDemo/KeyValueClientDemo.identcache
+
+*.identcache

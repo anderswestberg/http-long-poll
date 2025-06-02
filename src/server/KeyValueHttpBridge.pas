@@ -335,7 +335,27 @@ procedure TKeyValueHTTPBridge.AddLongPoll(LastId: Int64; const ClientId: string;
 var
   Ctx: TLongPollContext;
   Changes: TArray<TChangeRecord>;
+  L: TList;
+  i: Integer;
 begin
+  // Clean up any expired contexts first
+  L := FLongPollContexts.LockList;
+  try
+    for i := L.Count-1 downto 0 do
+    begin
+      Ctx := TLongPollContext(L[i]);
+      if SecondsBetween(Now, Ctx.RequestedAt) > 30 then
+      begin
+        TSeqLogger.Logger.Log(Information, 'Removing expired long poll context for client {ClientId}', ['ClientId', Ctx.ClientId]);
+        L.Delete(i);
+        Ctx.WaitEvent.Free;
+        Ctx.Free;
+      end;
+    end;
+  finally
+    FLongPollContexts.UnlockList;
+  end;
+
   // Just before waiting, check again in case of race
   FKV.GetChangesSince(LastId, ClientId, Changes);
   if Length(Changes) > 0 then
@@ -352,19 +372,44 @@ begin
   Ctx.WaitEvent := TEvent.Create(nil, True, False, '');
   FLongPollContexts.Add(Ctx);
 
+  TSeqLogger.Logger.Log(Information, 'Added long poll context for client {ClientId} waiting for changes after ID {LastId}', 
+    ['ClientId', ClientId, 'LastId', LastId]);
+
   // Wait for up to 30 seconds for change
   if Ctx.WaitEvent.WaitFor(30000) = wrSignaled then
   begin
     FKV.GetChangesSince(Ctx.LastId, Ctx.ClientId, Changes);
-    ResponseText := ChangesToJSON(Changes);
-    ResponseCode := 200;
+    if Length(Changes) > 0 then
+    begin
+      ResponseText := ChangesToJSON(Changes);
+      ResponseCode := 200;
+      TSeqLogger.Logger.Log(Information, 'Long poll for client {ClientId} returned {Count} changes', 
+        ['ClientId', ClientId, 'Count', Length(Changes)]);
+    end
+    else
+    begin
+      ResponseText := '[]';
+      ResponseCode := 204;
+      TSeqLogger.Logger.Log(Information, 'Long poll for client {ClientId} signaled but no changes found', ['ClientId', ClientId]);
+    end;
   end
   else
-  begin    ResponseText := '[]'; // no changes
+  begin
+    ResponseText := '[]';
     ResponseCode := 204;
+    TSeqLogger.Logger.Log(Information, 'Long poll for client {ClientId} timed out', ['ClientId', ClientId]);
   end;
 
-  FLongPollContexts.Remove(Ctx);
+  // Remove our context
+  L := FLongPollContexts.LockList;
+  try
+    i := L.IndexOf(Ctx);
+    if i >= 0 then
+      L.Delete(i);
+  finally
+    FLongPollContexts.UnlockList;
+  end;
+
   Ctx.WaitEvent.Free;
   Ctx.Free;
 end;
@@ -372,7 +417,8 @@ end;
 // Called on any change (manual, HTTP, etc)
 procedure TKeyValueHTTPBridge.HandleValueChanged(Sender: TObject; const Key: string; const Value: variant; const SourceId: string);
 begin
-  TSeqLogger.Logger.Log(Information, 'Value changed: key={Key} value={Value} source={Source}', ['Key', Key, 'Value', VariantSaveJSON(Value), 'Source', SourceId]);
+  TSeqLogger.Logger.Log(Information, 'Value changed: key={Key} value={Value} source={Source}', 
+    ['Key', Key, 'Value', VariantSaveJSON(Value), 'Source', SourceId]);
   NotifyLongPoll;
 end;
 
@@ -381,17 +427,28 @@ var
   L: TList;
   i: Integer;
   Ctx: TLongPollContext;
+  ToSignal: TList;
 begin
-  L := FLongPollContexts.LockList;
+  ToSignal := TList.Create;
   try
-    for i := L.Count-1 downto 0 do
+    // First, get the list of contexts to signal
+    L := FLongPollContexts.LockList;
+    try
+      for i := 0 to L.Count-1 do
+        ToSignal.Add(L[i]);
+    finally
+      FLongPollContexts.UnlockList;
+    end;
+
+    // Now signal each context
+    for i := 0 to ToSignal.Count-1 do
     begin
-      Ctx := TLongPollContext(L[i]);
+      Ctx := TLongPollContext(ToSignal[i]);
+      TSeqLogger.Logger.Log(Information, 'Notifying long poll client {ClientId}', ['ClientId', Ctx.ClientId]);
       Ctx.WaitEvent.SetEvent;
-      L.Delete(i);
     end;
   finally
-    FLongPollContexts.UnlockList;
+    ToSignal.Free;
   end;
 end;
 
