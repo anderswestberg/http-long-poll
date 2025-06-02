@@ -13,6 +13,9 @@ type
     FHTTPThread: THTTPServerThread;
     FKV: IKeyValueStore;
     FLongPollContexts: TThreadList;
+    FCleanupThread: TThread;
+    FMaxConcurrentPolls: Integer;
+    FTerminating: Boolean;
     procedure HTTPGetHandler(Sender: TObject; const URL: string; const Params: TStrings;
     const Body: string; const BodyVariant: variant; const Args: THTTPCommandArgs; var ResponseText: string; var ResponseCode: Integer);
     procedure HTTPPostHandler(Sender: TObject; const URL: string; const Params: TStrings;
@@ -21,7 +24,7 @@ type
     procedure HandleValueChanged(Sender: TObject; const Key: string; const Value: variant; const SourceId: string);
     procedure NotifyLongPoll;
     function ChangesToJSON(const Changes: TArray<TChangeRecord>): string;
-
+    procedure CleanupExpiredContexts;
     function GetHTTPServer: THTTPServer;
   public
     constructor Create(APort: Integer; AKV: IKeyValueStore = nil);
@@ -30,6 +33,17 @@ type
     procedure Stop;
     property KeyValueStore: IKeyValueStore read FKV;
     property HTTPServer: THTTPServer read GetHTTPServer;
+    property MaxConcurrentPolls: Integer read FMaxConcurrentPolls write FMaxConcurrentPolls;
+  end;
+
+type
+  TCleanupThread = class(TThread)
+  private
+    FBridge: TKeyValueHTTPBridge;
+  protected
+    procedure Execute; override;
+  public
+    constructor Create(ABridge: TKeyValueHTTPBridge);
   end;
 
 implementation
@@ -48,6 +62,7 @@ type
 constructor TKeyValueHTTPBridge.Create(APort: Integer; AKV: IKeyValueStore = nil);
 begin
   inherited Create;
+  FTerminating := False;
   if AKV = nil then
     FKV := CreateDefaultKeyValueStore
   else
@@ -57,10 +72,22 @@ begin
   FHTTPThread.FHttpServer.OnPost := HTTPPostHandler;
   FLongPollContexts := TThreadList.Create;
   FKV.OnValueChanged := HandleValueChanged;
+  FMaxConcurrentPolls := 100; // Default max concurrent long polls
+
+  // Create cleanup thread
+  FCleanupThread := TCleanupThread.Create(Self);
+  FCleanupThread.FreeOnTerminate := False;
 end;
 
 destructor TKeyValueHTTPBridge.Destroy;
 begin
+  FTerminating := True;
+  if Assigned(FCleanupThread) then
+  begin
+    FCleanupThread.Terminate;
+    FCleanupThread.WaitFor;
+    FreeAndNil(FCleanupThread);
+  end;
   Stop; // Ensure server is stopped
   FLongPollContexts.Free;
   FHTTPThread.Free;
@@ -330,20 +357,23 @@ begin
   ResponseCode := 404;
 end;
 
-procedure TKeyValueHTTPBridge.AddLongPoll(LastId: Int64; const ClientId: string; var ResponseText: string; var ResponseCode: Integer);
+procedure TKeyValueHTTPBridge.CleanupExpiredContexts;
 var
-  Ctx: TLongPollContext;
-  Changes: TArray<TChangeRecord>;
   L: TList;
   i: Integer;
+  Ctx: TLongPollContext;
+  Now: TDateTime;
 begin
-  // Clean up any expired contexts first
+  if FTerminating then
+    Exit;
+
+  Now := System.SysUtils.Now;
   L := FLongPollContexts.LockList;
   try
     for i := L.Count-1 downto 0 do
     begin
       Ctx := TLongPollContext(L[i]);
-      if SecondsBetween(Now, Ctx.RequestedAt) > 30 then
+      if SecondsBetween(Now, Ctx.RequestedAt) > 35 then // Give extra 5s margin over client timeout
       begin
         TSeqLogger.Logger.Log(Information, 'Removing expired long poll context for client {ClientId}', ['ClientId', Ctx.ClientId]);
         L.Delete(i);
@@ -353,6 +383,32 @@ begin
     end;
   finally
     FLongPollContexts.UnlockList;
+  end;
+end;
+
+procedure TKeyValueHTTPBridge.AddLongPoll(LastId: Int64; const ClientId: string; var ResponseText: string; var ResponseCode: Integer);
+var
+  Ctx: TLongPollContext;
+  L: TList;
+  ActiveCount: Integer;
+  Changes: TArray<TChangeRecord>;
+  i: Integer;
+begin
+  // Check current number of active long polls
+  L := FLongPollContexts.LockList;
+  try
+    ActiveCount := L.Count;
+  finally
+    FLongPollContexts.UnlockList;
+  end;
+
+  if ActiveCount >= FMaxConcurrentPolls then
+  begin
+    TSeqLogger.Logger.Log(Warning, 'Max concurrent long polls reached ({Max}), rejecting client {ClientId}', 
+      ['Max', FMaxConcurrentPolls, 'ClientId', ClientId]);
+    ResponseText := '{"error":"too many concurrent connections"}';
+    ResponseCode := 503; // Service Unavailable
+    Exit;
   end;
 
   // Just before waiting, check again in case of race
@@ -448,6 +504,24 @@ begin
     end;
   finally
     ToSignal.Free;
+  end;
+end;
+
+{ TCleanupThread }
+
+constructor TCleanupThread.Create(ABridge: TKeyValueHTTPBridge);
+begin
+  inherited Create(False);
+  FBridge := ABridge;
+end;
+
+procedure TCleanupThread.Execute;
+begin
+  while not Terminated do
+  begin
+    Sleep(5000); // Run cleanup every 5 seconds
+    if not Terminated then
+      FBridge.CleanupExpiredContexts;
   end;
 end;
 

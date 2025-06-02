@@ -50,16 +50,24 @@ begin
   // Create and configure regular HTTP client
   FIdHTTP := TIdHTTP.Create(nil);
   FIdHTTP.IOHandler := TIdIOHandlerStack.Create(FIdHTTP);
-  FIdHTTP.ConnectTimeout := 1000;  // Reduced from 3000
-  FIdHTTP.ReadTimeout := 2000;     // Reduced from 5000
+  FIdHTTP.ConnectTimeout := 5000;  // Increased for reliability
+  FIdHTTP.ReadTimeout := 10000;    // Increased for reliability
   FIdHTTP.IOHandler.MaxLineLength := 16384;
+  FIdHTTP.AllowCookies := False;   // Don't need cookies
+  FIdHTTP.HandleRedirects := False; // Don't need redirects
+  FIdHTTP.ProtocolVersion := pv1_1; // Use HTTP/1.1 for keep-alive
+  FIdHTTP.Request.Connection := 'keep-alive';
   
   // Create and configure long polling HTTP client
   FIdHTTP_LongPoll := TIdHTTP.Create(nil);
   FIdHTTP_LongPoll.IOHandler := TIdIOHandlerStack.Create(FIdHTTP_LongPoll);
-  FIdHTTP_LongPoll.ConnectTimeout := 1000;  // Reduced from 3000
-  FIdHTTP_LongPoll.ReadTimeout := 32000;    // Keep long poll timeout the same
+  FIdHTTP_LongPoll.ConnectTimeout := 5000;  // Increased for reliability
+  FIdHTTP_LongPoll.ReadTimeout := 32000;    // Keep long poll timeout
   FIdHTTP_LongPoll.IOHandler.MaxLineLength := 16384;
+  FIdHTTP_LongPoll.AllowCookies := False;   // Don't need cookies
+  FIdHTTP_LongPoll.HandleRedirects := False; // Don't need redirects
+  FIdHTTP_LongPoll.ProtocolVersion := pv1_1; // Use HTTP/1.1 for keep-alive
+  FIdHTTP_LongPoll.Request.Connection := 'keep-alive';
   
   FClientId := ''; // Empty by default
   TSeqLogger.Logger.Log(Information, 'HTTP client created for {BaseUrl}', ['BaseUrl', BaseUrl]);

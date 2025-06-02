@@ -34,7 +34,7 @@ type
       AResponseInfo: TIdHTTPResponseInfo);
     procedure SetActive(const Value: boolean);
   public
-    constructor Create(Port: Integer);
+    constructor Create(APort: Integer);
     destructor Destroy; override;
 
     procedure StopServer;
@@ -59,14 +59,18 @@ implementation
 
 { THTTPServer }
 
-constructor THTTPServer.Create(Port: Integer);
+constructor THTTPServer.Create(APort: Integer);
 begin
   inherited Create;
-  FPort := Port;
-
-  // Create and configure the HTTP server
+  FPort := APort;
   FHTTPServer := TIdHTTPServer.Create(nil);
   FHTTPServer.DefaultPort := FPort;
+  
+  // Configure keep-alive and connection settings
+  FHTTPServer.KeepAlive := True;
+  FHTTPServer.MaxConnections := 100;
+  FHTTPServer.SessionTimeOut := 60000; // 60 seconds
+  FHTTPServer.AutoStartSession := False; // Don't need sessions
   FHTTPServer.OnCommandGet := HandleCommand;
 end;
 
