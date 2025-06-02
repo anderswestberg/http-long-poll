@@ -11,37 +11,38 @@ A Delphi library that provides a key-value store with HTTP long-polling capabili
 - Extensible architecture through interfaces
 - Change tracking with source identification
 - Client ID support to prevent echo effects
-- Automatic connection management
-- Built with Indy components for HTTP server functionality
+- Automatic connection management and retry
 
 ## Installation
 
 1. Add the following files to your project:
-   - `src/HttpServerUnit.pas`
-   - `src/KeyValueHTTPBridgeUnit.pas`
-   - `src/KeyValueServerUnit.pas`
+   - `src/server/HttpServer.pas`
+   - `src/server/KeyValueHttpBridge.pas`
+   - `src/server/KeyValueStore.pas`
+   - `src/client/KeyValueClient.pas`
+   - `src/client/KeyValueHttpClient.pas`
+   - `src/common/SeqLogger.pas`
 
 2. Ensure you have the following dependencies:
    - Indy components (IndySystem, IndyCore, IndyProtocols)
-   - mORMot framework (SynCommons, SynLZ)
-
-3. Add the library's package (`HttpLongPoll.dpk`) to your project if you want to use it as a runtime package.
+   - mORMot framework (SynCommons)
 
 ## Quick Start
 
+### Server Side
 ```delphi
 uses
-  KeyValueServerUnit, KeyValueHTTPBridgeUnit;
+  KeyValueStore, KeyValueHttpBridge;
 
 var
-  KVStore: IKeyValueStore;
-  Bridge: TKeyValueHTTPBridge;
+  Store: IKeyValueStore;
+  Bridge: TKeyValueHttpBridge;
 begin
   // Create the key-value store
-  KVStore := CreateDefaultKeyValueStore;
+  Store := CreateDefaultKeyValueStore;
   
-  // Create and start the HTTP bridge on port 8080
-  Bridge := TKeyValueHTTPBridge.Create(8080, KVStore);
+  // Create and start the HTTP bridge on port 8868
+  Bridge := TKeyValueHttpBridge.Create(8868, Store);
   Bridge.Start;
   try
     // Use the store...
@@ -51,16 +52,39 @@ begin
 end;
 ```
 
+### Client Side
+```delphi
+uses
+  KeyValueClient, KeyValueHttpClient;
+
+var
+  Client: TKeyValueClient;
+begin
+  Client := TKeyValueClient.Create('http://localhost:8868');
+  try
+    // The client automatically connects and maintains connection
+    Client.OnStateChange := HandleStateChange;
+    Client.OnValueChange := HandleValueChange;
+    
+    // Use the client
+    Client.SetValue('myKey', 'myValue');
+    Value := Client.GetValue('myKey');
+  finally
+    Client.Free;
+  end;
+end;
+```
+
 ## HTTP API
 
 ### Get Value
 ```
 GET /data?key=<key>
+X-Client-ID: <clientId>
 ```
 Response:
 ```json
 {
-  "key": "myKey",
   "value": "myValue"
 }
 ```
@@ -69,6 +93,7 @@ Response:
 ```
 POST /data
 Content-Type: application/json
+X-Client-ID: <clientId>
 
 {
   "key": "myKey",
@@ -86,6 +111,7 @@ Response:
 ```
 POST /batch
 Content-Type: application/json
+X-Client-ID: <clientId>
 
 [
   {"key": "key1", "value": "value1"},
@@ -116,9 +142,9 @@ Response:
 ]
 ```
 
-## Custom Key-Value Store Implementation
+## IKeyValueStore Interface
 
-You can create your own key-value store implementation by implementing the `IKeyValueStore` interface:
+The key-value store interface has been updated to include batch operations and better change tracking:
 
 ```delphi
 type
@@ -127,67 +153,72 @@ type
     function GetValue(const Key: string; out Value: Variant): Boolean;
     procedure SetValue(const Key: string; const Value: Variant; const SourceId: string = '');
     procedure SetValues(const Updates: array of TPair<string, Variant>; const SourceId: string = '');
-    procedure GetAll(var Output: TArray<string>);
+    procedure GetAll(var Output: TArray<TPair<string, variant>>);
     procedure GetChangesSince(LastId: Int64; const SourceId: string; out Changes: TArray<TChangeRecord>);
     function GetOnValueChanged: TKeyValueChangedEvent;
+    procedure AddChange(const Key: string; const Value: Variant; const SourceId: string);
     procedure SetOnValueChanged(const Value: TKeyValueChangedEvent);
+    function GetLatestChangeId: Int64;
     property OnValueChanged: TKeyValueChangedEvent read GetOnValueChanged write SetOnValueChanged;
   end;
 ```
 
-Example usage with a custom implementation:
+## Client Features
 
-```delphi
-type
-  TMyCustomStore = class(TInterfacedObject, IKeyValueStore)
-    // Implement the interface methods...
-  end;
+The client implementation (`TKeyValueClient`) provides:
 
-var
-  CustomStore: IKeyValueStore;
-  Bridge: TKeyValueHTTPBridge;
-begin
-  CustomStore := TMyCustomStore.Create;
-  Bridge := TKeyValueHTTPBridge.Create(8080, CustomStore);
-  Bridge.Start;
-  try
-    // Use the custom store...
-  finally
-    Bridge.Free;
-  end;
-end;
-```
+- Automatic connection management
+- Automatic reconnection on failure
+- Thread-safe operations
+- Batch operations support
+- Real-time updates through long polling
+- Client state management (Connected/Connecting/Disconnected)
+- Event-based notification of changes
+- Configurable retry intervals
 
 ## Thread Safety
 
-The default implementation (`TDictionaryKeyValueStore`) is thread-safe, using a critical section to protect access to the underlying dictionary and change log. Custom implementations should also ensure thread safety as the HTTP bridge handles requests in separate threads.
+Both server and client implementations are fully thread-safe:
+
+- Server uses critical sections to protect the key-value store and change log
+- Client uses critical sections for all operations
+- Long polling is handled in separate threads
+- Connection management runs in a dedicated thread
+- Event notifications are properly queued to the main thread
 
 ## Change Tracking
 
-The library maintains a change log to support long-polling operations. Changes are tracked with:
-- Unique change IDs
-- Timestamps
-- Source IDs (to prevent echo effects)
-- Key and value pairs
+The system maintains a robust change tracking mechanism:
+- Unique monotonic change IDs
+- Timestamps for each change
+- Source ID tracking to prevent echo effects
+- Support for batch changes
+- Configurable change log size (default: 2000 entries)
+- Maximum changes per request (default: 1000)
 
-The default implementation keeps the last 2000 changes and returns up to 1000 changes per request.
+## Performance Considerations
 
-## Client Implementation
-
-For client implementations, consider:
-1. Generate a unique client ID
-2. Include the client ID in requests via the `X-Client-ID` header
-3. Track the last seen change ID for long-polling requests
-4. Handle connection timeouts and reconnection logic
-
-See the `demo/KVClientTest` directory for a complete client implementation example.
+The library includes performance optimizations:
+- Batch operations for better throughput
+- Connection pooling in the HTTP client
+- Configurable timeouts and intervals
+- Efficient change tracking with pruning
+- Optimized long polling with proper cancellation
 
 ## Demo Applications
 
-The library includes two demo applications:
-1. `demo/TestLongPoll`: A server application demonstrating the key-value store
-2. `demo/KVClientTest`: A client application showing how to interact with the server
+1. `demo/KeyValueServerDemo`: Server demo showing:
+   - Basic server setup
+   - Key-value store operations
+   - Change monitoring
+
+2. `demo/KeyValueClientDemo`: Client demo featuring:
+   - Connection management
+   - Real-time updates
+   - Stress testing capabilities
+   - Batch operations
+   - Performance monitoring
 
 ## License
 
-[Your license information here]
+MIT

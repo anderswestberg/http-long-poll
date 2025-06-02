@@ -34,14 +34,14 @@ requires
   IndyProtocols260;
 
 contains
-  HttpServerUnit in 'HttpServerUnit.pas',
-  KeyValueHTTPBridgeUnit in 'KeyValueHTTPBridgeUnit.pas',
-  KeyValueServerUnit in 'KeyValueServerUnit.pas',
+  HttpServer in 'server\HttpServer.pas',
+  KeyValueHttpBridge in 'server\KeyValueHttpBridge.pas',
+  KeyValueStore in 'server\KeyValueStore.pas',
   SynCommons in '..\..\prod-dip\lib\Synopse\SynCommons.pas',
   SynLZ in '..\..\prod-dip\lib\Synopse\SynLZ.pas',
-  SeqLoggerClass in 'SeqLoggerClass.pas',
-  KeyValueClientUnit in 'KeyValueClientUnit.pas',
-  KVHttpClient in 'KVHttpClient.pas';
+  SeqLogger in 'common\SeqLogger.pas',
+  KeyValueClient in 'client\KeyValueClient.pas',
+  KeyValueHttpClient in 'client\KeyValueHttpClient.pas';
 
 end.
 

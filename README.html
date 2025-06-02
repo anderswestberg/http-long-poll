@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>HTTP Long Poll Key-Value Store</title>
+            <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only],
+.vscode-high-contrast:not(.vscode-high-contrast-light) img[src$=\#gh-light-mode-only],
+.vscode-high-contrast-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+</style>
+            
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+<style>
+:root {
+  --color-note: #0969da;
+  --color-tip: #1a7f37;
+  --color-warning: #9a6700;
+  --color-severe: #bc4c00;
+  --color-caution: #d1242f;
+  --color-important: #8250df;
+}
+
+</style>
+<style>
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-note: #2f81f7;
+    --color-tip: #3fb950;
+    --color-warning: #d29922;
+    --color-severe: #db6d28;
+    --color-caution: #f85149;
+    --color-important: #a371f7;
+  }
+}
+
+</style>
+<style>
+.markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 16px;
+  color: inherit;
+  border-left: .25em solid #888;
+}
+
+.markdown-alert>:first-child {
+  margin-top: 0
+}
+
+.markdown-alert>:last-child {
+  margin-bottom: 0
+}
+
+.markdown-alert .markdown-alert-title {
+  display: flex;
+  font-weight: 500;
+  align-items: center;
+  line-height: 1
+}
+
+.markdown-alert .markdown-alert-title .octicon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.markdown-alert.markdown-alert-note {
+  border-left-color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+  color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-important {
+  border-left-color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+  color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-warning {
+  border-left-color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+  color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-tip {
+  border-left-color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+  color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-caution {
+  border-left-color: var(--color-caution);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+  color: var(--color-caution);
+}
+
+</style>
+        
+        </head>
+        <body class="vscode-body vscode-light">
+            <h1 id="http-long-poll-key-value-store">HTTP Long Poll Key-Value Store</h1>
+<p>A Delphi library that provides a key-value store with HTTP long-polling capabilities for real-time updates. The library is built with flexibility in mind, allowing custom key-value store implementations while providing a default in-memory implementation.</p>
+<h2 id="features">Features</h2>
+<ul>
+<li>In-memory key-value store with support for various data types (strings, numbers, booleans, JSON)</li>
+<li>HTTP long-polling mechanism for real-time updates</li>
+<li>Support for batch operations</li>
+<li>Thread-safe operations</li>
+<li>Extensible architecture through interfaces</li>
+<li>Change tracking with source identification</li>
+<li>Client ID support to prevent echo effects</li>
+<li>Automatic connection management and retry</li>
+</ul>
+<h2 id="installation">Installation</h2>
+<ol>
+<li>
+<p>Add the following files to your project:</p>
+<ul>
+<li><code>src/server/HttpServer.pas</code></li>
+<li><code>src/server/KeyValueHttpBridge.pas</code></li>
+<li><code>src/server/KeyValueStore.pas</code></li>
+<li><code>src/client/KeyValueClient.pas</code></li>
+<li><code>src/client/KeyValueHttpClient.pas</code></li>
+<li><code>src/common/SeqLogger.pas</code></li>
+</ul>
+</li>
+<li>
+<p>Ensure you have the following dependencies:</p>
+<ul>
+<li>Indy components (IndySystem, IndyCore, IndyProtocols)</li>
+<li>mORMot framework (SynCommons)</li>
+</ul>
+</li>
+</ol>
+<h2 id="quick-start">Quick Start</h2>
+<h3 id="server-side">Server Side</h3>
+<pre><code class="language-delphi"><span class="hljs-keyword">uses</span>
+  KeyValueStore, KeyValueHttpBridge;
+
+<span class="hljs-keyword">var</span>
+  KVStore: IKeyValueStore;
+  Bridge: TKeyValueHttpBridge;
+<span class="hljs-keyword">begin</span>
+  <span class="hljs-comment">// Create the key-value store</span>
+  KVStore := CreateDefaultKeyValueStore;
+  
+  <span class="hljs-comment">// Create and start the HTTP bridge on port 8868</span>
+  Bridge := TKeyValueHttpBridge.Create(<span class="hljs-number">8868</span>, KVStore);
+  Bridge.Start;
+  <span class="hljs-keyword">try</span>
+    <span class="hljs-comment">// Use the store...</span>
+  <span class="hljs-keyword">finally</span>
+    Bridge.Free;
+  <span class="hljs-keyword">end</span>;
+<span class="hljs-keyword">end</span>;
+</code></pre>
+<h3 id="client-side">Client Side</h3>
+<pre><code class="language-delphi"><span class="hljs-keyword">uses</span>
+  KeyValueClient, KeyValueHttpClient;
+
+<span class="hljs-keyword">var</span>
+  Client: TKeyValueClient;
+<span class="hljs-keyword">begin</span>
+  Client := TKeyValueClient.Create(<span class="hljs-string">&#x27;http://localhost:8868&#x27;</span>);
+  <span class="hljs-keyword">try</span>
+    <span class="hljs-comment">// The client automatically connects and maintains connection</span>
+    Client.OnStateChange := HandleStateChange;
+    Client.OnValueChange := HandleValueChange;
+    
+    <span class="hljs-comment">// Use the client</span>
+    Client.SetValue(<span class="hljs-string">&#x27;myKey&#x27;</span>, <span class="hljs-string">&#x27;myValue&#x27;</span>);
+    Value := Client.GetValue(<span class="hljs-string">&#x27;myKey&#x27;</span>);
+  <span class="hljs-keyword">finally</span>
+    Client.Free;
+  <span class="hljs-keyword">end</span>;
+<span class="hljs-keyword">end</span>;
+</code></pre>
+<h2 id="http-api">HTTP API</h2>
+<h3 id="get-value">Get Value</h3>
+<pre><code>GET /data?key=&lt;key&gt;
+X-Client-ID: &lt;clientId&gt;
+</code></pre>
+<p>Response:</p>
+<pre><code class="language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;myValue&quot;</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+<h3 id="set-value">Set Value</h3>
+<pre><code>POST /data
+Content-Type: application/json
+X-Client-ID: &lt;clientId&gt;
+
+{
+  &quot;key&quot;: &quot;myKey&quot;,
+  &quot;value&quot;: &quot;myValue&quot;
+}
+</code></pre>
+<p>Response:</p>
+<pre><code class="language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ok&quot;</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+<h3 id="batch-update">Batch Update</h3>
+<pre><code>POST /batch
+Content-Type: application/json
+X-Client-ID: &lt;clientId&gt;
+
+[
+  {&quot;key&quot;: &quot;key1&quot;, &quot;value&quot;: &quot;value1&quot;},
+  {&quot;key&quot;: &quot;key2&quot;, &quot;value&quot;: 42}
+]
+</code></pre>
+<p>Response:</p>
+<pre><code class="language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ok&quot;</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+<h3 id="long-polling">Long Polling</h3>
+<pre><code>GET /longpoll?since=&lt;lastChangeId&gt;
+X-Client-ID: &lt;clientId&gt;
+</code></pre>
+<p>Response:</p>
+<pre><code class="language-json"><span class="hljs-punctuation">[</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">123</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;key&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;myKey&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;myValue&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2024-03-21T15:30:45Z&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">]</span>
+</code></pre>
+<h2 id="ikeyvaluestore-interface">IKeyValueStore Interface</h2>
+<p>The key-value store interface has been updated to include batch operations and better change tracking:</p>
+<pre><code class="language-delphi"><span class="hljs-keyword">type</span>
+  IKeyValueStore = <span class="hljs-keyword">interface</span>
+    [<span class="hljs-string">&#x27;{F8F7B2A1-D3E4-4C5D-B6A7-8C9D0E1F2A3B}&#x27;</span>]
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">GetValue</span><span class="hljs-params">(<span class="hljs-keyword">const</span> Key: <span class="hljs-keyword">string</span>; <span class="hljs-keyword">out</span> Value: Variant)</span>:</span> Boolean;
+    <span class="hljs-function"><span class="hljs-keyword">procedure</span> <span class="hljs-title">SetValue</span><span class="hljs-params">(<span class="hljs-keyword">const</span> Key: <span class="hljs-keyword">string</span>; <span class="hljs-keyword">const</span> Value: Variant; <span class="hljs-keyword">const</span> SourceId: <span class="hljs-keyword">string</span> = <span class="hljs-string">&#x27;&#x27;</span>)</span>;</span>
+    <span class="hljs-function"><span class="hljs-keyword">procedure</span> <span class="hljs-title">SetValues</span><span class="hljs-params">(<span class="hljs-keyword">const</span> Updates: <span class="hljs-keyword">array</span> <span class="hljs-keyword">of</span> TPair&lt;<span class="hljs-keyword">string</span>, Variant&gt;; <span class="hljs-keyword">const</span> SourceId: <span class="hljs-keyword">string</span> = <span class="hljs-string">&#x27;&#x27;</span>)</span>;</span>
+    <span class="hljs-function"><span class="hljs-keyword">procedure</span> <span class="hljs-title">GetAll</span><span class="hljs-params">(<span class="hljs-keyword">var</span> Output: TArray&lt;TPair&lt;<span class="hljs-keyword">string</span>, variant&gt;&gt;)</span>;</span>
+    <span class="hljs-function"><span class="hljs-keyword">procedure</span> <span class="hljs-title">GetChangesSince</span><span class="hljs-params">(LastId: Int64; <span class="hljs-keyword">const</span> SourceId: <span class="hljs-keyword">string</span>; <span class="hljs-keyword">out</span> Changes: TArray&lt;TChangeRecord&gt;)</span>;</span>
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">GetOnValueChanged</span>:</span> TKeyValueChangedEvent;
+    <span class="hljs-function"><span class="hljs-keyword">procedure</span> <span class="hljs-title">AddChange</span><span class="hljs-params">(<span class="hljs-keyword">const</span> Key: <span class="hljs-keyword">string</span>; <span class="hljs-keyword">const</span> Value: Variant; <span class="hljs-keyword">const</span> SourceId: <span class="hljs-keyword">string</span>)</span>;</span>
+    <span class="hljs-function"><span class="hljs-keyword">procedure</span> <span class="hljs-title">SetOnValueChanged</span><span class="hljs-params">(<span class="hljs-keyword">const</span> Value: TKeyValueChangedEvent)</span>;</span>
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">GetLatestChangeId</span>:</span> Int64;
+    <span class="hljs-keyword">property</span> OnValueChanged: TKeyValueChangedEvent <span class="hljs-keyword">read</span> GetOnValueChanged <span class="hljs-keyword">write</span> SetOnValueChanged;
+  <span class="hljs-keyword">end</span>;
+</code></pre>
+<h2 id="client-features">Client Features</h2>
+<p>The client implementation (<code>TKeyValueClient</code>) provides:</p>
+<ul>
+<li>Automatic connection management</li>
+<li>Automatic reconnection on failure</li>
+<li>Thread-safe operations</li>
+<li>Batch operations support</li>
+<li>Real-time updates through long polling</li>
+<li>Client state management (Connected/Connecting/Disconnected)</li>
+<li>Event-based notification of changes</li>
+<li>Configurable retry intervals</li>
+</ul>
+<h2 id="thread-safety">Thread Safety</h2>
+<p>Both server and client implementations are fully thread-safe:</p>
+<ul>
+<li>Server uses critical sections to protect the key-value store and change log</li>
+<li>Client uses critical sections for all operations</li>
+<li>Long polling is handled in separate threads</li>
+<li>Connection management runs in a dedicated thread</li>
+<li>Event notifications are properly queued to the main thread</li>
+</ul>
+<h2 id="change-tracking">Change Tracking</h2>
+<p>The system maintains a robust change tracking mechanism:</p>
+<ul>
+<li>Unique monotonic change IDs</li>
+<li>Timestamps for each change</li>
+<li>Source ID tracking to prevent echo effects</li>
+<li>Support for batch changes</li>
+<li>Configurable change log size (default: 2000 entries)</li>
+<li>Maximum changes per request (default: 1000)</li>
+</ul>
+<h2 id="performance-considerations">Performance Considerations</h2>
+<p>The library includes performance optimizations:</p>
+<ul>
+<li>Batch operations for better throughput</li>
+<li>Connection pooling in the HTTP client</li>
+<li>Configurable timeouts and intervals</li>
+<li>Efficient change tracking with pruning</li>
+<li>Optimized long polling with proper cancellation</li>
+</ul>
+<h2 id="demo-applications">Demo Applications</h2>
+<ol>
+<li>
+<p><code>demo/TestLongPoll</code>: Server demo showing:</p>
+<ul>
+<li>Basic server setup</li>
+<li>Key-value store operations</li>
+<li>Change monitoring</li>
+</ul>
+</li>
+<li>
+<p><code>demo/KVClientTest</code>: Client demo featuring:</p>
+<ul>
+<li>Connection management</li>
+<li>Real-time updates</li>
+<li>Stress testing capabilities</li>
+<li>Batch operations</li>
+<li>Performance monitoring</li>
+</ul>
+</li>
+</ol>
+<h2 id="license">License</h2>
+<p>[Your license information here]</p>
+
+            
+            
+        </body>
+        </html>

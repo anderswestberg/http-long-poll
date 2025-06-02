@@ -5,8 +5,8 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
-  Vcl.StdCtrls, Vcl.ExtCtrls, KeyValueServerUnit, KeyValueHTTPBridgeUnit,
-  SynCommons, SeqloggerClass, Generics.Collections;
+  Vcl.StdCtrls, Vcl.ExtCtrls, KeyValueStore, KeyValueHttpBridge,
+  SynCommons, Seqlogger, Generics.Collections;
 
 type
   TMainForm = class(TForm)
