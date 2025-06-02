@@ -265,24 +265,19 @@ begin
     
     for i := 1 to 3 do // Reduce from 5 to 3 iterations
     begin
-      Key := Format('stress.test.%d', [Random(10)]);
+      Key := Format('stress.test.%d', [Random(5)]); // Reduce from 10 to 5 to ensure we hit written keys more often
 
-      // Ensure we do some reads (at least 1 per batch)
-      if (not FWrittenKeys.ContainsKey(Key)) or 
-         ((Random(2) = 1) and (ReadCount < 2)) then // Allow max 2 reads per batch
-      begin
-        // Write operation
-        Value := Format('value-%d-%d', [Random(1000), FStressTestOps]);
-        BatchUpdates[BatchSize] := TPair<string, Variant>.Create(Key, Value);
-        Inc(BatchSize);
-        FWrittenKeys.AddOrSetValue(Key, True);
-      end
-      else
+      // If key exists and we haven't done too many reads, do a read operation
+      if FWrittenKeys.ContainsKey(Key) and 
+         ((Random(2) = 0) or (ReadCount = 0)) and // Ensure at least one read per batch
+         (ReadCount < 2) then // Max 2 reads per batch
       begin
         // Read operation
         try
           Value := FClient.GetValue(Key);
           Inc(ReadCount);
+          Inc(FStressTestOps);
+          Log(Format('[Stress Test] Read %s = %s', [Key, VarToStr(Value)]));
         except
           on E: Exception do
           begin
@@ -290,8 +285,16 @@ begin
             Log('[Stress Test Error] Read failed: ' + E.Message);
           end;
         end;
+      end
+      else
+      begin
+        // Write operation
+        Value := Format('value-%d-%d', [Random(1000), FStressTestOps]);
+        BatchUpdates[BatchSize] := TPair<string, Variant>.Create(Key, Value);
+        Inc(BatchSize);
+        FWrittenKeys.AddOrSetValue(Key, True);
+        Inc(FStressTestOps);
       end;
-      Inc(FStressTestOps);
     end;
 
     // Send batch updates if any
@@ -300,6 +303,7 @@ begin
       SetLength(BatchUpdates, BatchSize);
       try
         FClient.SetValues(BatchUpdates);
+        Log(Format('[Stress Test] Batch write: %d keys', [BatchSize]));
       except
         on E: Exception do
         begin

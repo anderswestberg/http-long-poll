@@ -176,14 +176,12 @@ begin
           // Test connection by getting latest change ID
           FLastSeenId := FClient.GetLatestChangeId;
           
-          // Start long polling
-          StartLongPoll;
-          
-          // Small delay to ensure everything is initialized
-          Sleep(100);
-          
+          // Set state to connected before starting long poll
           SetState(kvsConnected);
           TSeqLogger.Logger.Log(Information, 'KeyValueClient connected to {BaseUrl}', ['BaseUrl', FBaseUrl]);
+          
+          // Start long polling after state is set
+          StartLongPoll;
         finally
           FLock.Release;
         end;
@@ -203,22 +201,32 @@ end;
 
 procedure TKeyValueClient.StartLongPoll;
 begin
-  if not Assigned(FLongPollThread) and not FTerminating then
-  begin
-    FLongPollThread := TLongPollThread.Create(Self);
-    TSeqLogger.Logger.Log(Information, 'KeyValueClient started long polling from ID {LastSeenId}', ['LastSeenId', FLastSeenId]);
+  FLock.Acquire;
+  try
+    if not Assigned(FLongPollThread) and not FTerminating and (FState = kvsConnected) then
+    begin
+      FLongPollThread := TLongPollThread.Create(Self);
+      TSeqLogger.Logger.Log(Information, 'KeyValueClient started long polling from ID {LastSeenId}', ['LastSeenId', FLastSeenId]);
+    end;
+  finally
+    FLock.Release;
   end;
 end;
 
 procedure TKeyValueClient.StopLongPoll;
 begin
-  if Assigned(FLongPollThread) then
-  begin
-    TLongPollThread(FLongPollThread).Terminate;
-    FClient.CancelLongPoll;
-    FLongPollThread.WaitFor;
-    FreeAndNil(FLongPollThread);
-    TSeqLogger.Logger.Log(Information, 'KeyValueClient stopped long polling');
+  FLock.Acquire;
+  try
+    if Assigned(FLongPollThread) then
+    begin
+      TLongPollThread(FLongPollThread).Terminate;
+      FClient.CancelLongPoll;
+      FLongPollThread.WaitFor;
+      FreeAndNil(FLongPollThread);
+      TSeqLogger.Logger.Log(Information, 'KeyValueClient stopped long polling');
+    end;
+  finally
+    FLock.Release;
   end;
 end;
 
@@ -226,17 +234,43 @@ procedure TKeyValueClient.LongPollThreadProc;
 var
   Changes: TArray<TChangeItem>;
   Change: TChangeItem;
+  CurrentState: TKeyValueClientState;
 begin
-  while not FTerminating and (FState = kvsConnected) do
+  TSeqLogger.Logger.Log(Information, 'Long poll thread started for client {ClientId}', ['ClientId', FClientId]);
+  
+  while not FTerminating do
   begin
+    // Get current state in a thread-safe way
+    FLock.Acquire;
+    try
+      CurrentState := FState;
+    finally
+      FLock.Release;
+    end;
+
+    if CurrentState <> kvsConnected then
+    begin
+      TSeqLogger.Logger.Log(Information, 'Long poll thread stopping due to state change to {State}', ['State', Ord(CurrentState)]);
+      Break;
+    end;
+
     try
       if FClient.LongPoll(FLastSeenId, Changes) then
       begin
-        for Change in Changes do
-        begin
-          if Change.Id > FLastSeenId then
-            FLastSeenId := Change.Id;
-          DoValueChange(Change.Key, Change.Value);
+        FLock.Acquire;
+        try
+          for Change in Changes do
+          begin
+            if Change.Id > FLastSeenId then
+            begin
+              FLastSeenId := Change.Id;
+              TSeqLogger.Logger.Log(Information, 'Long poll received change: ID={Id} Key={Key}', 
+                ['Id', Change.Id, 'Key', Change.Key]);
+              DoValueChange(Change.Key, Change.Value);
+            end;
+          end;
+        finally
+          FLock.Release;
         end;
       end;
     except
@@ -251,6 +285,8 @@ begin
       end;
     end;
   end;
+  
+  TSeqLogger.Logger.Log(Information, 'Long poll thread exiting for client {ClientId}', ['ClientId', FClientId]);
 end;
 
 function TKeyValueClient.GetValue(const Key: string): Variant;
