@@ -6,7 +6,7 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.StdCtrls, Vcl.ExtCtrls, KeyValueStore, KeyValueHttpBridge,
-  SynCommons, Seqlogger, Generics.Collections;
+  SynCommons, Seqlogger, Generics.Collections, VariantUtils;
 
 type
   TMainForm = class(TForm)
@@ -124,10 +124,8 @@ end;
 
 procedure TMainForm.BtnWriteKVClick(Sender: TObject);
 var
-  Key, ValueStr: string;
+  Key, ValueStr, ConversionError: string;
   Value: Variant;
-  IntValue: Int64;
-  DoubleValue: Double;
 begin
   if not Assigned(FKV) then
     Exit;
@@ -139,28 +137,13 @@ begin
     Exit;
   end;
 
-  // Try to parse as different types
-  if TryStrToInt64(ValueStr, IntValue) then
-    Value := IntValue
-  else if TryStrToFloat(ValueStr, DoubleValue) then
-    Value := DoubleValue
-  else if SameText(ValueStr, 'true') then
-    Value := True
-  else if SameText(ValueStr, 'false') then
-    Value := False
-  else if ValueStr.StartsWith('{') or ValueStr.StartsWith('[') then
-    // Try to parse as JSON
-    try
-      Value := _JSON(RawUTF8(ValueStr));
-    except
-      Value := ValueStr;
-    end
-  else
-    Value := ValueStr;
+  Value := StringToTypedVariant(ValueStr, ConversionError);
+  if ConversionError <> '' then
+    Log('[Warning] ' + ConversionError);
 
   FKV.SetValue(Key, Value);
-  TSeqLogger.Logger.Log(Information, Format('Manual key/value write: %s=%s', [Key, ValueStr]));
-  Log(Format('Manually wrote: %s=%s', [Key, ValueStr]));
+  TSeqLogger.Logger.Log(Information, Format('Manual key/value write: %s=%s', [Key, VariantToStringWithType(Value)]));
+  Log(Format('Manually wrote: %s=%s', [Key, VariantToStringWithType(Value)]));
   UpdateKVDisplay;
 end;
 

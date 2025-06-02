@@ -41,7 +41,8 @@ contains
   SynLZ in '..\..\prod-dip\lib\Synopse\SynLZ.pas',
   SeqLogger in 'common\SeqLogger.pas',
   KeyValueClient in 'client\KeyValueClient.pas',
-  KeyValueHttpClient in 'client\KeyValueHttpClient.pas';
+  KeyValueHttpClient in 'client\KeyValueHttpClient.pas',
+  VariantUtils in 'common\VariantUtils.pas';
 
 end.
 

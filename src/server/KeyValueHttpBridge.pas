@@ -138,7 +138,6 @@ var
   Guid: TGUID;
   Doc: TDocVariantData;
   AllKeys: TArray<TPair<string, variant>>;
-  KeyValue: string;
   EqPos: Integer;
   Path: string;
 begin

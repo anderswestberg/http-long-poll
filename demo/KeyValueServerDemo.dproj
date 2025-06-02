@@ -1,5 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
         <ProjectGuid>{96CDBB03-801E-4D82-9808-F310AAE95046}</ProjectGuid>
         <MainSource>KeyValueServerDemo.dpr</MainSource>
@@ -108,6 +107,7 @@
         <DCCReference Include="..\src\server\KeyValueHttpBridge.pas"/>
         <DCCReference Include="..\src\server\KeyValueStore.pas"/>
         <DCCReference Include="..\src\common\SeqLogger.pas"/>
+        <DCCReference Include="..\src\common\VariantUtils.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

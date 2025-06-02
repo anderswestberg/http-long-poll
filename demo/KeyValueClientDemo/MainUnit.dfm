@@ -45,7 +45,7 @@ object MainForm: TMainForm
     object LabelKey: TLabel
       Left = 16
       Top = 16
-      Width = 19
+      Width = 18
       Height = 13
       Caption = 'Key'
     end
@@ -66,7 +66,7 @@ object MainForm: TMainForm
     object LabelInstanceInfo: TLabel
       Left = 280
       Top = 70
-      Width = 71
+      Width = 65
       Height = 13
       Caption = 'Instance Info'
       Font.Charset = DEFAULT_CHARSET

@@ -5,7 +5,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
   System.DateUtils, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
-  KeyValueClient, Generics.Collections, SeqLogger;
+  KeyValueClient, Generics.Collections, SeqLogger, VariantUtils;
 
 type
   TStressTestThread = class(TThread)
@@ -19,10 +19,10 @@ type
     FClientId: string;
     procedure LogMessage(const Msg: string);
     procedure UpdateStats;
-    procedure Execute; override;
   public
     constructor Create(AClient: TKeyValueClient; ALog: TStrings; const AClientId: string);
     destructor Destroy; override;
+    procedure Execute; override;
     property Operations: Integer read FOperations;
     property Errors: Integer read FErrors;
   end;
@@ -199,7 +199,7 @@ begin
     end;
 
     // Small delay to prevent overwhelming the server
-    Sleep(50);
+    Sleep(5);
   end;
 
   // Final stats update
@@ -302,22 +302,33 @@ end;
 
 procedure TMainForm.OnClientValueChange(Sender: TObject; const Key: string; const Value: Variant);
 begin
-  Log(Format('Long poll update: %s = %s', [Key, VarToStr(Value)]));
+  Log(Format('Long poll update: %s = %s', [Key, VariantToStringWithType(Value)]));
   // If this is the key we're currently viewing, update the value field
   if SameText(Key, Trim(EditKey.Text)) then
     EditValue.Text := VarToStr(Value);
 end;
 
 procedure TMainForm.BtnWriteClick(Sender: TObject);
+var
+  Key, ValueStr, ConversionError: string;
+  Value: Variant;
 begin
   if Trim(EditKey.Text) = '' then
   begin
     ShowMessage('Key must not be empty');
     Exit;
   end;
+  
+  Key := Trim(EditKey.Text);
+  ValueStr := EditValue.Text;
+
+  Value := StringToTypedVariant(ValueStr, ConversionError);
+  if ConversionError <> '' then
+    Log('[Warning] ' + ConversionError);
+
   try
-    FClient.SetValue(Trim(EditKey.Text), EditValue.Text);
-    Log(Format('PUT %s = %s', [Trim(EditKey.Text), EditValue.Text]));
+    FClient.SetValue(Key, Value);
+    Log(Format('PUT %s = %s', [Key, VariantToStringWithType(Value)]));
   except
     on E: Exception do
       Log('[Error] ' + E.Message);

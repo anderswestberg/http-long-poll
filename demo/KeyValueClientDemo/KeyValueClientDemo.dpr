@@ -5,7 +5,8 @@ uses
   MainUnit in 'MainUnit.pas' {MainForm},
   SeqLogger in '..\..\src\common\SeqLogger.pas',
   KeyValueClient in '..\..\src\client\KeyValueClient.pas',
-  KeyValueHttpClient in '..\..\src\client\KeyValueHttpClient.pas';
+  KeyValueHttpClient in '..\..\src\client\KeyValueHttpClient.pas',
+  VariantUtils in '..\..\src\common\VariantUtils.pas';
 
 {$R *.res}
 

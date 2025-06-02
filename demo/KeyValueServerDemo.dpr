@@ -6,7 +6,8 @@ uses
   HttpServer in '..\src\server\HttpServer.pas',
   KeyValueHttpBridge in '..\src\server\KeyValueHttpBridge.pas',
   KeyValueStore in '..\src\server\KeyValueStore.pas',
-  SeqLogger in '..\src\common\SeqLogger.pas';
+  SeqLogger in '..\src\common\SeqLogger.pas',
+  VariantUtils in '..\src\common\VariantUtils.pas';
 
 {$R *.res}
 
