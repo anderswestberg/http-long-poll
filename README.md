@@ -1,4 +1,4 @@
-# HTTP Long Poll Key-Value Store
+# HTTP Key-Value Store
 
 A Delphi library that provides a key-value store with HTTP long-polling capabilities for real-time updates. The library is built with flexibility in mind, allowing custom key-value store implementations while providing a default in-memory implementation.
 
@@ -26,6 +26,8 @@ A Delphi library that provides a key-value store with HTTP long-polling capabili
 2. Ensure you have the following dependencies:
    - Indy components (IndySystem, IndyCore, IndyProtocols)
    - mORMot framework (SynCommons)
+
+Alternatively, you can install the `HttpKeyValueStore` package which contains all the necessary components.
 
 ## Quick Start
 
@@ -79,8 +81,7 @@ end;
 
 ### Get Value
 ```
-GET /data?key=<key>
-X-Client-ID: <clientId>
+GET /values?key=<key>&clientId=<clientId>
 ```
 Response:
 ```json
@@ -91,9 +92,8 @@ Response:
 
 ### Set Value
 ```
-POST /data
+POST /values?clientId=<clientId>
 Content-Type: application/json
-X-Client-ID: <clientId>
 
 {
   "key": "myKey",
@@ -109,9 +109,8 @@ Response:
 
 ### Batch Update
 ```
-POST /batch
+POST /values/batch?clientId=<clientId>
 Content-Type: application/json
-X-Client-ID: <clientId>
 
 [
   {"key": "key1", "value": "value1"},
@@ -125,10 +124,38 @@ Response:
 }
 ```
 
-### Long Polling
+### Get All Values
 ```
-GET /longpoll?since=<lastChangeId>
-X-Client-ID: <clientId>
+GET /values/all?clientId=<clientId>
+```
+Response:
+```json
+[
+  {
+    "key": "key1",
+    "value": "value1"
+  },
+  {
+    "key": "key2",
+    "value": 42
+  }
+]
+```
+
+### Get Latest Change ID
+```
+GET /changes/latest?clientId=<clientId>
+```
+Response:
+```json
+{
+  "id": 123
+}
+```
+
+### Long Polling for Changes
+```
+GET /changes?since=<lastChangeId>&clientId=<clientId>
 ```
 Response:
 ```json

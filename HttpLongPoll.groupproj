@@ -3,7 +3,7 @@
         <ProjectGuid>{1B2D7E4F-86A5-4C1E-9C3A-98D0B1F5C2E5}</ProjectGuid>
     </PropertyGroup>
     <ItemGroup>
-        <Projects Include="src\HttpLongPoll.dproj">
+        <Projects Include="src\HttpKeyValueStore.dproj">
             <Dependencies/>
         </Projects>
         <Projects Include="demo\KeyValueServerDemo.dproj">
@@ -20,14 +20,14 @@
             <Default.Personality/>
         </BorlandProject>
     </ProjectExtensions>
-    <Target Name="HttpLongPoll">
-        <MSBuild Projects="src\HttpLongPoll.dproj"/>
+    <Target Name="HttpKeyValueStore">
+        <MSBuild Projects="src\HttpKeyValueStore.dproj"/>
     </Target>
-    <Target Name="HttpLongPoll:Clean">
-        <MSBuild Projects="src\HttpLongPoll.dproj" Targets="Clean"/>
+    <Target Name="HttpKeyValueStore:Clean">
+        <MSBuild Projects="src\HttpKeyValueStore.dproj" Targets="Clean"/>
     </Target>
-    <Target Name="HttpLongPoll:Make">
-        <MSBuild Projects="src\HttpLongPoll.dproj" Targets="Make"/>
+    <Target Name="HttpKeyValueStore:Make">
+        <MSBuild Projects="src\HttpKeyValueStore.dproj" Targets="Make"/>
     </Target>
     <Target Name="KeyValueServerDemo">
         <MSBuild Projects="demo\KeyValueServerDemo.dproj"/>
@@ -48,13 +48,13 @@
         <MSBuild Projects="demo\KeyValueClientDemo\KeyValueClientDemo.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
-        <CallTarget Targets="HttpLongPoll;KeyValueServerDemo;KeyValueClientDemo"/>
+        <CallTarget Targets="HttpKeyValueStore;KeyValueServerDemo;KeyValueClientDemo"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="HttpLongPoll:Clean;KeyValueServerDemo:Clean;KeyValueClientDemo:Clean"/>
+        <CallTarget Targets="HttpKeyValueStore:Clean;KeyValueServerDemo:Clean;KeyValueClientDemo:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="HttpLongPoll:Make;KeyValueServerDemo:Make;KeyValueClientDemo:Make"/>
+        <CallTarget Targets="HttpKeyValueStore:Make;KeyValueServerDemo:Make;KeyValueClientDemo:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

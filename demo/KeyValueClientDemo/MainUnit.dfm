@@ -1,7 +1,7 @@
 object MainForm: TMainForm
   Left = 0
   Top = 0
-  Caption = 'KV Client Test'
+  Caption = 'KeyValue Client Demo'
   ClientHeight = 387
   ClientWidth = 532
   Color = clBtnFace
@@ -43,7 +43,6 @@ object MainForm: TMainForm
     Height = 171
     Align = alClient
     TabOrder = 1
-    ExplicitHeight = 115
     object LabelKey: TLabel
       Left = 16
       Top = 16

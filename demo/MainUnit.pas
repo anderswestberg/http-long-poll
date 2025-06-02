@@ -108,12 +108,12 @@ begin
   BtnStopClick(nil);
   Timer1.Enabled := False;
   LogStrings.Free;
-  TSeqLogger.Logger.Log(Information, 'KV Server stopped');
+  TSeqLogger.Logger.Log(Information, 'KeyValue Server stopped');
 end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
-  TSeqLogger.Logger.Log(Information, 'KV Server started');
+  TSeqLogger.Logger.Log(Information, 'KeyValue Server started');
   LogStrings := TStringList.Create;
 end;
 

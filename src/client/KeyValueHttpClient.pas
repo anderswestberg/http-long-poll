@@ -76,8 +76,6 @@ end;
 
 procedure TKVHttpClient.AddClientIdHeader(HTTP: TIdHTTP);
 begin
-  if FClientId <> '' then
-    HTTP.Request.CustomHeaders.AddValue('X-Client-ID', FClientId);
   HTTP.Request.ContentType := 'application/json';
 end;
 
@@ -85,11 +83,15 @@ function TKVHttpClient.GetValue(const Key: string): Variant;
 var
   Doc: TDocVariantData;
   Response: string;
+  Url: string;
 begin
   TSeqLogger.Logger.Log(Information, Format('Client %s reading key %s', [FClientId, Key]));
   AddClientIdHeader(FIdHTTP);  // Use regular client
   try
-    Response := FIdHTTP.Get(FBaseUrl + '/data?key=' + TNetEncoding.URL.Encode(Key));
+    Url := FBaseUrl + '/values?key=' + TNetEncoding.URL.Encode(Key);
+    if FClientId <> '' then
+      Url := Url + '&clientId=' + TNetEncoding.URL.Encode(FClientId);
+    Response := FIdHTTP.Get(Url);
     Doc.InitJSON(RawUTF8(Response));
     Result := Doc.GetValueOrNull('value');
     TSeqLogger.Logger.Log(Information, Format('Client %s read key %s = %s', [FClientId, Key, VarToStr(Result)]));
@@ -106,6 +108,7 @@ procedure TKVHttpClient.PostValue(const Key: string; const Value: Variant);
 var
   Doc: TDocVariantData;
   Source: TStringStream;
+  Url: string;
 begin
   TSeqLogger.Logger.Log(Information, Format('Client %s writing key %s = %s', [FClientId, Key, VarToStr(Value)]));
   AddClientIdHeader(FIdHTTP);
@@ -116,7 +119,10 @@ begin
   ]);
   Source := TStringStream.Create(string(Doc.ToJSON), TEncoding.UTF8);
   try
-    FIdHTTP.Post(FBaseUrl + '/data', Source);
+    Url := FBaseUrl + '/values';
+    if FClientId <> '' then
+      Url := Url + '?clientId=' + TNetEncoding.URL.Encode(FClientId);
+    FIdHTTP.Post(Url, Source);
     TSeqLogger.Logger.Log(Information, Format('Client %s successfully wrote key %s', [FClientId, Key]));
   except
     on E: Exception do
@@ -133,6 +139,7 @@ var
   Doc: TDocVariantData;
   Pair: TPair<string, Variant>;
   Source: TStringStream;
+  Url: string;
 begin
   TSeqLogger.Logger.Log(Information, Format('Client %s starting batch write of %d values', [FClientId, Length(KeyValues)]));
   AddClientIdHeader(FIdHTTP);
@@ -146,7 +153,10 @@ begin
   Source := TStringStream.Create(string(Doc.ToJSON), TEncoding.UTF8);
   try
     try
-      FIdHTTP.Post(FBaseUrl + '/batch', Source);
+      Url := FBaseUrl + '/values/batch';
+      if FClientId <> '' then
+        Url := Url + '?clientId=' + TNetEncoding.URL.Encode(FClientId);
+      FIdHTTP.Post(Url, Source);
       TSeqLogger.Logger.Log(Information, Format('Client %s successfully completed batch write', [FClientId]));
     except
       on E: Exception do
@@ -180,12 +190,16 @@ var
   Resp: string;
   Doc: TDocVariantData;
   i: Integer;
+  Url: string;
 begin
   TSeqLogger.Logger.Log(Information, Format('Client %s starting long poll from ID %d', [FClientId, SinceId]));
   SetLength(Changes, 0);
   try
     AddClientIdHeader(FIdHTTP_LongPoll);
-    Resp := FIdHTTP_LongPoll.Get(FBaseUrl + '/longpoll?since=' + IntToStr(SinceId));
+    Url := FBaseUrl + '/changes?since=' + IntToStr(SinceId);
+    if FClientId <> '' then
+      Url := Url + '&clientId=' + TNetEncoding.URL.Encode(FClientId);
+    Resp := FIdHTTP_LongPoll.Get(Url);
     if Resp <> '' then
     begin
       Doc.InitJSON(RawUTF8(Resp));
@@ -244,11 +258,15 @@ end;
 function TKVHttpClient.GetLatestChangeId: Int64;
 var
   Doc: TDocVariantData;
+  Url: string;
 begin
   TSeqLogger.Logger.Log(Information, Format('Client %s requesting latest change ID', [FClientId]));
   AddClientIdHeader(FIdHTTP);
   try
-    Doc.InitJSON(RawUTF8(FIdHTTP.Get(FBaseUrl + '/latest-change-id')));
+    Url := FBaseUrl + '/changes/latest';
+    if FClientId <> '' then
+      Url := Url + '?clientId=' + TNetEncoding.URL.Encode(FClientId);
+    Doc.InitJSON(RawUTF8(FIdHTTP.Get(Url)));
     Result := Doc.I['id'];
     TSeqLogger.Logger.Log(Information, Format('Client %s received latest change ID: %d', [FClientId, Result]));
   except
@@ -264,11 +282,15 @@ function TKVHttpClient.GetAll: TArray<TPair<string, Variant>>;
 var
   Doc: TDocVariantData;
   i: Integer;
+  Url: string;
 begin
   TSeqLogger.Logger.Log(Information, Format('Client %s requesting all values', [FClientId]));
   AddClientIdHeader(FIdHTTP);
   try
-    Doc.InitJSON(RawUTF8(FIdHTTP.Get(FBaseUrl + '/all')));
+    Url := FBaseUrl + '/values/all';
+    if FClientId <> '' then
+      Url := Url + '?clientId=' + TNetEncoding.URL.Encode(FClientId);
+    Doc.InitJSON(RawUTF8(FIdHTTP.Get(Url)));
     if Doc.Kind = dvArray then
     begin
       SetLength(Result, Doc.Count);

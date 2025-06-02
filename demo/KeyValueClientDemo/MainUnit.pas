@@ -51,7 +51,7 @@ implementation
 
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
-  TSeqLogger.Logger.Log(Information, 'KVClientTest started');
+  TSeqLogger.Logger.Log(Information, 'KeyValue Client Demo started');
   FClient := TKeyValueClient.Create('http://localhost:8868');
   FClient.OnStateChange := OnClientStateChange;
   FClient.OnValueChange := OnClientValueChange;

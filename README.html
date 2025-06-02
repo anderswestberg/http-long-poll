@@ -178,14 +178,14 @@
   KeyValueStore, KeyValueHttpBridge;
 
 <span class="hljs-keyword">var</span>
-  KVStore: IKeyValueStore;
+  Store: IKeyValueStore;
   Bridge: TKeyValueHttpBridge;
 <span class="hljs-keyword">begin</span>
   <span class="hljs-comment">// Create the key-value store</span>
-  KVStore := CreateDefaultKeyValueStore;
+  Store := CreateDefaultKeyValueStore;
   
   <span class="hljs-comment">// Create and start the HTTP bridge on port 8868</span>
-  Bridge := TKeyValueHttpBridge.Create(<span class="hljs-number">8868</span>, KVStore);
+  Bridge := TKeyValueHttpBridge.Create(<span class="hljs-number">8868</span>, Store);
   Bridge.Start;
   <span class="hljs-keyword">try</span>
     <span class="hljs-comment">// Use the store...</span>
@@ -217,8 +217,7 @@
 </code></pre>
 <h2 id="http-api">HTTP API</h2>
 <h3 id="get-value">Get Value</h3>
-<pre><code>GET /data?key=&lt;key&gt;
-X-Client-ID: &lt;clientId&gt;
+<pre><code>GET /data?key=&lt;key&gt;&amp;clientId=&lt;clientId&gt;
 </code></pre>
 <p>Response:</p>
 <pre><code class="language-json"><span class="hljs-punctuation">{</span>
@@ -226,9 +225,8 @@ X-Client-ID: &lt;clientId&gt;
 <span class="hljs-punctuation">}</span>
 </code></pre>
 <h3 id="set-value">Set Value</h3>
-<pre><code>POST /data
+<pre><code>POST /data?clientId=&lt;clientId&gt;
 Content-Type: application/json
-X-Client-ID: &lt;clientId&gt;
 
 {
   &quot;key&quot;: &quot;myKey&quot;,
@@ -241,9 +239,8 @@ X-Client-ID: &lt;clientId&gt;
 <span class="hljs-punctuation">}</span>
 </code></pre>
 <h3 id="batch-update">Batch Update</h3>
-<pre><code>POST /batch
+<pre><code>POST /batch?clientId=&lt;clientId&gt;
 Content-Type: application/json
-X-Client-ID: &lt;clientId&gt;
 
 [
   {&quot;key&quot;: &quot;key1&quot;, &quot;value&quot;: &quot;value1&quot;},
@@ -256,8 +253,7 @@ X-Client-ID: &lt;clientId&gt;
 <span class="hljs-punctuation">}</span>
 </code></pre>
 <h3 id="long-polling">Long Polling</h3>
-<pre><code>GET /longpoll?since=&lt;lastChangeId&gt;
-X-Client-ID: &lt;clientId&gt;
+<pre><code>GET /longpoll?since=&lt;lastChangeId&gt;&amp;clientId=&lt;clientId&gt;
 </code></pre>
 <p>Response:</p>
 <pre><code class="language-json"><span class="hljs-punctuation">[</span>
@@ -329,7 +325,7 @@ X-Client-ID: &lt;clientId&gt;
 <h2 id="demo-applications">Demo Applications</h2>
 <ol>
 <li>
-<p><code>demo/TestLongPoll</code>: Server demo showing:</p>
+<p><code>demo/KeyValueServerDemo</code>: Server demo showing:</p>
 <ul>
 <li>Basic server setup</li>
 <li>Key-value store operations</li>
@@ -337,7 +333,7 @@ X-Client-ID: &lt;clientId&gt;
 </ul>
 </li>
 <li>
-<p><code>demo/KVClientTest</code>: Client demo featuring:</p>
+<p><code>demo/KeyValueClientDemo</code>: Client demo featuring:</p>
 <ul>
 <li>Connection management</li>
 <li>Real-time updates</li>
@@ -348,7 +344,7 @@ X-Client-ID: &lt;clientId&gt;
 </li>
 </ol>
 <h2 id="license">License</h2>
-<p>[Your license information here]</p>
+<p>MIT</p>
 
             
             

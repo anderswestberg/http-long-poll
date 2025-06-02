@@ -1,7 +1,7 @@
 object MainForm: TMainForm
   Left = 0
   Top = 0
-  Caption = 'TestLongPolling'
+  Caption = 'KeyValue Server Demo'
   ClientHeight = 559
   ClientWidth = 594
   Color = clBtnFace

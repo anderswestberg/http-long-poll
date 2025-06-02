@@ -1,4 +1,4 @@
-unit SeqLoggerClass;
+unit SeqLogger;
 
 interface
 
