@@ -45,7 +45,7 @@ object MainForm: TMainForm
     object LabelKey: TLabel
       Left = 16
       Top = 16
-      Width = 19
+      Width = 18
       Height = 13
       Caption = 'Key'
     end
@@ -124,11 +124,5 @@ object MainForm: TMainForm
       TabOrder = 5
       OnClick = BtnStopStressTestClick
     end
-  end
-  object StressTestTimer: TTimer
-    Enabled = False
-    OnTimer = StressTestTimerTimer
-    Left = 272
-    Top = 144
   end
 end

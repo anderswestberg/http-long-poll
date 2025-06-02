@@ -8,6 +8,24 @@ uses
   KeyValueClient, Generics.Collections, SeqLogger;
 
 type
+  TStressTestThread = class(TThread)
+  private
+    FClient: TKeyValueClient;
+    FStartTime: TDateTime;
+    FOperations: Integer;
+    FErrors: Integer;
+    FLog: TStrings;
+    FWrittenKeys: TDictionary<string, Boolean>;
+    procedure LogMessage(const Msg: string);
+    procedure UpdateStats;
+    procedure Execute; override;
+  public
+    constructor Create(AClient: TKeyValueClient; ALog: TStrings);
+    destructor Destroy; override;
+    property Operations: Integer read FOperations;
+    property Errors: Integer read FErrors;
+  end;
+
   TMainForm = class(TForm)
     MemoLog: TMemo;
     Splitter1: TSplitter;
@@ -20,7 +38,6 @@ type
     BtnRead: TButton;
     BtnStartStressTest: TButton;
     BtnStopStressTest: TButton;
-    StressTestTimer: TTimer;
     LabelStatus: TLabel;
     procedure BtnWriteClick(Sender: TObject);
     procedure BtnReadClick(Sender: TObject);
@@ -28,16 +45,10 @@ type
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure BtnStartStressTestClick(Sender: TObject);
     procedure BtnStopStressTestClick(Sender: TObject);
-    procedure StressTestTimerTimer(Sender: TObject);
   private
     FClient: TKeyValueClient;
-    FStressTestStartTime: TDateTime;
-    FStressTestOps: Integer;
-    FStressTestErrors: Integer;
-    FWrittenKeys: TDictionary<string, Boolean>;  // Track which keys have been written
-    FInitialWrites: Integer;  // Track initial writes
+    FStressTest: TStressTestThread;
     procedure Log(const S: string);
-    procedure UpdateStressTestStats;
     procedure OnClientStateChange(Sender: TObject; NewState: TKeyValueClientState);
     procedure OnClientValueChange(Sender: TObject; const Key: string; const Value: Variant);
     procedure UpdateStatusLabel;
@@ -51,20 +62,167 @@ implementation
 
 {$R *.dfm}
 
+{ TStressTestThread }
+
+constructor TStressTestThread.Create(AClient: TKeyValueClient; ALog: TStrings);
+begin
+  inherited Create(True); // Create suspended
+  FClient := AClient;
+  FLog := ALog;
+  FWrittenKeys := TDictionary<string, Boolean>.Create;
+  FStartTime := 0;
+  FOperations := 0;
+  FErrors := 0;
+  FreeOnTerminate := False;
+end;
+
+destructor TStressTestThread.Destroy;
+begin
+  FWrittenKeys.Free;
+  inherited;
+end;
+
+procedure TStressTestThread.LogMessage(const Msg: string);
+begin
+  TThread.Queue(nil, procedure
+  begin
+    FLog.Add(FormatDateTime('hh:nn:ss', Now) + '  ' + Msg);
+  end);
+end;
+
+procedure TStressTestThread.UpdateStats;
+var
+  ElapsedSecs: Double;
+  OpsPerSec: Double;
+begin
+  ElapsedSecs := SecondsBetween(Now, FStartTime);
+  if ElapsedSecs > 0 then
+  begin
+    OpsPerSec := FOperations / ElapsedSecs;
+    LogMessage(Format('Stress Test Stats: %d ops in %.1f seconds (%.1f ops/sec), %d errors (%.1f%% success rate)',
+      [FOperations, ElapsedSecs, OpsPerSec, FErrors,
+       100 * (FOperations - FErrors) / FOperations]));
+  end;
+end;
+
+procedure TStressTestThread.Execute;
+var
+  Key: string;
+  Value: Variant;
+  i: Integer;
+  LastStatsUpdate: TDateTime;
+begin
+  // Wait for client to be connected
+  while not Terminated and (FClient.State <> kvsConnected) do
+  begin
+    LogMessage('[Stress Test] Waiting for client to connect...');
+    Sleep(1000);
+  end;
+
+  if Terminated then
+    Exit;
+
+  FStartTime := Now;
+  LastStatsUpdate := FStartTime;
+  LogMessage('Starting stress test...');
+
+  // Initialize first 5 keys
+  for i := 0 to 4 do
+  begin
+    if Terminated then
+      Exit;
+
+    Key := Format('stress.test.%d', [i]);
+    Value := Format('initial-value-%d', [i]);
+    try
+      FClient.SetValue(Key, Value);
+      FWrittenKeys.Add(Key, True);
+      Inc(FOperations);
+      LogMessage(Format('[Stress Test] Initial write: %s = %s', [Key, VarToStr(Value)]));
+    except
+      on E: Exception do
+      begin
+        Inc(FErrors);
+        LogMessage('[Stress Test Error] ' + E.Message);
+      end;
+    end;
+  end;
+
+  // Main test loop
+  while not Terminated do
+  begin
+    // Randomly choose between read and write
+    if Random(2) = 0 then
+    begin
+      // Read operation
+      Key := Format('stress.test.%d', [Random(5)]);
+      try
+        Value := FClient.GetValue(Key);
+        Inc(FOperations);
+        LogMessage(Format('[Stress Test] Read %s = %s', [Key, VarToStr(Value)]));
+      except
+        on E: Exception do
+        begin
+          Inc(FErrors);
+          LogMessage('[Stress Test Error] ' + E.Message);
+        end;
+      end;
+    end
+    else
+    begin
+      // Write operation
+      Key := Format('stress.test.%d', [Random(5)]);
+      Value := Format('value-%d', [Random(1000)]);
+      try
+        FClient.SetValue(Key, Value);
+        FWrittenKeys.AddOrSetValue(Key, True);
+        Inc(FOperations);
+        LogMessage(Format('[Stress Test] Write %s = %s', [Key, VarToStr(Value)]));
+      except
+        on E: Exception do
+        begin
+          Inc(FErrors);
+          LogMessage('[Stress Test Error] ' + E.Message);
+        end;
+      end;
+    end;
+
+    // Update stats every 5 seconds
+    if SecondsBetween(Now, LastStatsUpdate) >= 5 then
+    begin
+      UpdateStats;
+      LastStatsUpdate := Now;
+    end;
+
+    // Small delay to prevent overwhelming the server
+    Sleep(50);
+  end;
+
+  // Final stats update
+  UpdateStats;
+  LogMessage('Stress test stopped.');
+end;
+
+{ TMainForm }
+
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
   TSeqLogger.Logger.Log(Information, 'KeyValue Client Demo started');
   FClient := TKeyValueClient.Create('http://localhost:8868');
   FClient.OnStateChange := OnClientStateChange;
   FClient.OnValueChange := OnClientValueChange;
-  FWrittenKeys := TDictionary<string, Boolean>.Create;
   Log('Client created, waiting for connection...');
   UpdateStatusLabel;
 end;
 
 procedure TMainForm.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
-  FWrittenKeys.Free;
+  if Assigned(FStressTest) then
+  begin
+    FStressTest.Terminate;
+    FStressTest.WaitFor;
+    FreeAndNil(FStressTest);
+  end;
   FClient.Free;
 end;
 
@@ -157,173 +315,24 @@ end;
 
 procedure TMainForm.BtnStartStressTestClick(Sender: TObject);
 begin
-  FStressTestStartTime := Now;
-  FStressTestOps := 0;
-  FStressTestErrors := 0;
-  FWrittenKeys.Clear;
-  FInitialWrites := 0;
-  
-  // Start with a small delay to ensure connection is fully established
-  Sleep(200);
-  
-  StressTestTimer.Interval := 50; // Change from 10ms to 50ms for better stability
-  StressTestTimer.Enabled := True;
-  BtnStartStressTest.Enabled := False;
-  BtnStopStressTest.Enabled := True;
-  Log('Starting stress test...');
+  if not Assigned(FStressTest) then
+  begin
+    FStressTest := TStressTestThread.Create(FClient, MemoLog.Lines);
+    FStressTest.Start;
+    BtnStartStressTest.Enabled := False;
+    BtnStopStressTest.Enabled := True;
+  end;
 end;
 
 procedure TMainForm.BtnStopStressTestClick(Sender: TObject);
 begin
-  StressTestTimer.Enabled := False;
-  BtnStartStressTest.Enabled := True;
-  BtnStopStressTest.Enabled := False;
-  UpdateStressTestStats;
-  Log('Stress test stopped.');
-end;
-
-procedure TMainForm.UpdateStressTestStats;
-var
-  ElapsedSecs: Double;
-  OpsPerSec: Double;
-begin
-  ElapsedSecs := SecondsBetween(Now, FStressTestStartTime);
-  if ElapsedSecs > 0 then
+  if Assigned(FStressTest) then
   begin
-    OpsPerSec := FStressTestOps / ElapsedSecs;
-    Log(Format('Stress Test Stats: %d ops in %.1f seconds (%.1f ops/sec), %d errors (%.1f%% success rate)',
-      [FStressTestOps, ElapsedSecs, OpsPerSec, FStressTestErrors,
-       100 * (FStressTestOps - FStressTestErrors) / FStressTestOps]));
-  end;
-end;
-
-procedure TMainForm.StressTestTimerTimer(Sender: TObject);
-var
-  Op: Integer;
-  Key: string;
-  Value: Variant;
-  i: Integer;
-  BatchUpdates: TArray<TPair<string, Variant>>;
-  BatchSize: Integer;
-  ReadCount: Integer;
-begin
-  // Only perform operations when client is connected
-  if FClient.State <> kvsConnected then
-  begin
-    Log('[Stress Test] Waiting for client to connect...');
-    Exit;
-  end;
-
-  try
-    // Initial phase: Write to first 5 keys to ensure we have data
-    if FInitialWrites < 5 then
-    begin
-      SetLength(BatchUpdates, 5 - FInitialWrites);
-      BatchSize := 0;
-      
-      for i := 0 to 4 do
-      begin
-        Key := Format('stress.test.%d', [i]);
-        if not FWrittenKeys.ContainsKey(Key) then
-        begin
-          Value := Format('initial-value-%d-%d', [i, FStressTestOps]);
-          BatchUpdates[BatchSize] := TPair<string, Variant>.Create(Key, Value);
-          Inc(BatchSize);
-          FWrittenKeys.AddOrSetValue(Key, True);
-          Inc(FInitialWrites);
-        end;
-      end;
-      
-      if BatchSize > 0 then
-      begin
-        SetLength(BatchUpdates, BatchSize);
-        try
-          FClient.SetValues(BatchUpdates);
-          Inc(FStressTestOps, BatchSize);
-          Log(Format('[Stress Test] Initial batch write: %d keys', [BatchSize]));
-        except
-          on E: Exception do
-          begin
-            Inc(FStressTestErrors);
-            Log('[Stress Test Error] Initial batch write failed: ' + E.Message);
-            Dec(FInitialWrites, BatchSize); // Rollback the writes that failed
-            for i := 0 to BatchSize - 1 do
-              FWrittenKeys.Remove(BatchUpdates[i].Key);
-          end;
-        end;
-      end;
-      
-      if (FStressTestOps mod 100) = 0 then
-        UpdateStressTestStats;
-      Exit;
-    end;
-
-    // After initial phase, do multiple operations per timer tick
-    SetLength(BatchUpdates, 3); // Reduce from 5 to 3 operations per tick
-    BatchSize := 0;
-    ReadCount := 0;
-    
-    for i := 1 to 3 do // Reduce from 5 to 3 iterations
-    begin
-      Key := Format('stress.test.%d', [Random(5)]); // Reduce from 10 to 5 to ensure we hit written keys more often
-
-      // If key exists and we haven't done too many reads, do a read operation
-      if FWrittenKeys.ContainsKey(Key) and 
-         ((Random(2) = 0) or (ReadCount = 0)) and // Ensure at least one read per batch
-         (ReadCount < 2) then // Max 2 reads per batch
-      begin
-        // Read operation
-        try
-          Value := FClient.GetValue(Key);
-          Inc(ReadCount);
-          Inc(FStressTestOps);
-          Log(Format('[Stress Test] Read %s = %s', [Key, VarToStr(Value)]));
-        except
-          on E: Exception do
-          begin
-            Inc(FStressTestErrors);
-            Log('[Stress Test Error] Read failed: ' + E.Message);
-          end;
-        end;
-      end
-      else
-      begin
-        // Write operation
-        Value := Format('value-%d-%d', [Random(1000), FStressTestOps]);
-        BatchUpdates[BatchSize] := TPair<string, Variant>.Create(Key, Value);
-        Inc(BatchSize);
-        FWrittenKeys.AddOrSetValue(Key, True);
-        Inc(FStressTestOps);
-      end;
-    end;
-
-    // Send batch updates if any
-    if BatchSize > 0 then
-    begin
-      SetLength(BatchUpdates, BatchSize);
-      try
-        FClient.SetValues(BatchUpdates);
-        Log(Format('[Stress Test] Batch write: %d keys', [BatchSize]));
-      except
-        on E: Exception do
-        begin
-          Inc(FStressTestErrors);
-          Log('[Stress Test Error] Batch write failed: ' + E.Message);
-          // Remove the keys that failed to write
-          for i := 0 to BatchSize - 1 do
-            FWrittenKeys.Remove(BatchUpdates[i].Key);
-        end;
-      end;
-    end;
-
-    if (FStressTestOps mod 100) = 0 then
-      UpdateStressTestStats;
-  except
-    on E: Exception do
-    begin
-      Inc(FStressTestErrors);
-      Log('[Stress Test Error] ' + E.Message);
-    end;
+    FStressTest.Terminate;
+    FStressTest.WaitFor;
+    FreeAndNil(FStressTest);
+    BtnStartStressTest.Enabled := True;
+    BtnStopStressTest.Enabled := False;
   end;
 end;
 
