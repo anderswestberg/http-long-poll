@@ -8,7 +8,8 @@ uses
   KeyValueStore in '..\src\server\KeyValueStore.pas',
   SeqLogger in '..\src\common\SeqLogger.pas',
   VariantUtils in '..\src\common\VariantUtils.pas',
-  ChangeRecordPool in '..\src\common\ChangeRecordPool.pas';
+  ChangeRecordPool in '..\src\common\ChangeRecordPool.pas',
+  LoggerSettings in '..\src\common\LoggerSettings.pas';
 
 {$R *.res}
 

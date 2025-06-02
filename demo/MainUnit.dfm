@@ -1,98 +1,124 @@
 object MainForm: TMainForm
   Left = 0
   Top = 0
-  Caption = 'KeyValue Server Demo'
-  ClientHeight = 559
-  ClientWidth = 594
+  Caption = 'Key/Value Store Server'
+  ClientHeight = 441
+  ClientWidth = 624
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -11
-  Font.Name = 'Tahoma'
+  Font.Height = -12
+  Font.Name = 'Segoe UI'
   Font.Style = []
   OldCreateOrder = True
   Position = poScreenCenter
   OnClose = FormClose
   OnCreate = FormCreate
   PixelsPerInch = 96
-  TextHeight = 13
+  TextHeight = 15
   object LabelKey: TLabel
-    Left = 16
-    Top = 225
-    Width = 22
-    Height = 13
+    Left = 8
+    Top = 371
+    Width = 21
+    Height = 15
     Caption = 'Key:'
   end
   object LabelValue: TLabel
-    Left = 200
-    Top = 225
-    Width = 30
-    Height = 13
+    Left = 168
+    Top = 371
+    Width = 32
+    Height = 15
     Caption = 'Value:'
   end
+  object LabelLogLevel: TLabel
+    Left = 328
+    Top = 371
+    Width = 54
+    Height = 15
+    Caption = 'Log Level:'
+  end
   object MemoLog: TMemo
-    Left = 16
-    Top = 16
-    Width = 384
-    Height = 200
+    Left = 8
+    Top = 8
+    Width = 608
+    Height = 353
     ReadOnly = True
     ScrollBars = ssVertical
     TabOrder = 0
   end
-  object EditKey: TEdit
-    Left = 44
-    Top = 222
-    Width = 140
-    Height = 21
-    TabOrder = 1
-  end
-  object EditValue: TEdit
-    Left = 240
-    Top = 222
-    Width = 160
-    Height = 21
-    TabOrder = 2
-  end
-  object BtnWriteKV: TButton
-    Left = 320
-    Top = 252
-    Width = 80
-    Height = 25
-    Caption = 'Write Key/Val'
-    TabOrder = 3
-    OnClick = BtnWriteKVClick
-  end
   object BtnStart: TButton
-    Left = 16
-    Top = 252
+    Left = 8
+    Top = 408
     Width = 75
     Height = 25
     Caption = 'Start'
-    TabOrder = 4
+    TabOrder = 1
     OnClick = BtnStartClick
   end
   object BtnStop: TButton
-    Left = 104
-    Top = 252
+    Left = 89
+    Top = 408
     Width = 75
     Height = 25
     Caption = 'Stop'
-    TabOrder = 5
+    TabOrder = 2
     OnClick = BtnStopClick
   end
-  object Button1: TButton
-    Left = 56
-    Top = 376
+  object EditKey: TEdit
+    Left = 35
+    Top = 367
+    Width = 121
+    Height = 23
+    TabOrder = 3
+  end
+  object EditValue: TEdit
+    Left = 206
+    Top = 367
+    Width = 121
+    Height = 23
+    TabOrder = 4
+  end
+  object BtnWriteKV: TButton
+    Left = 170
+    Top = 408
     Width = 75
     Height = 25
-    Caption = 'Write values'
+    Caption = 'Write K/V'
+    TabOrder = 5
+    OnClick = BtnWriteKVClick
+  end
+  object Button1: TButton
+    Left = 251
+    Top = 408
+    Width = 75
+    Height = 25
+    Caption = 'Test'
     TabOrder = 6
     OnClick = Button1Click
   end
+  object CheckBoxLogging: TCheckBox
+    Left = 388
+    Top = 408
+    Width = 97
+    Height = 17
+    Caption = 'Enable Logging'
+    TabOrder = 7
+    OnClick = CheckBoxLoggingClick
+  end
+  object ComboBoxLogLevel: TComboBox
+    Left = 388
+    Top = 367
+    Width = 145
+    Height = 23
+    Style = csDropDownList
+    TabOrder = 8
+    OnChange = ComboBoxLogLevelChange
+  end
   object Timer1: TTimer
     Enabled = False
+    Interval = 500
     OnTimer = Timer1Timer
-    Left = 200
-    Top = 272
+    Left = 576
+    Top = 400
   end
 end

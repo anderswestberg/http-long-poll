@@ -97,7 +97,7 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
-        <DCCReference Include="MainUnit.pas">
+        <DCCReference Include="MainClientUnit.pas">
             <Form>MainForm</Form>
         </DCCReference>
         <DCCReference Include="..\..\src\common\SeqLogger.pas"/>
@@ -105,6 +105,7 @@
         <DCCReference Include="..\..\src\client\KeyValueHttpClient.pas"/>
         <DCCReference Include="..\..\src\common\VariantUtils.pas"/>
         <DCCReference Include="..\..\src\common\ChangeRecordPool.pas"/>
+        <DCCReference Include="..\..\src\common\LoggerSettings.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

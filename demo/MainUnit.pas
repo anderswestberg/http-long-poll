@@ -6,7 +6,7 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.StdCtrls, Vcl.ExtCtrls, KeyValueStore, KeyValueHttpBridge,
-  SynCommons, Seqlogger, Generics.Collections, VariantUtils;
+  SynCommons, Seqlogger, Generics.Collections, VariantUtils, LoggerSettings;
 
 type
   TMainForm = class(TForm)
@@ -20,6 +20,9 @@ type
     LabelKey: TLabel;
     LabelValue: TLabel;
     Button1: TButton;
+    CheckBoxLogging: TCheckBox;
+    ComboBoxLogLevel: TComboBox;
+    LabelLogLevel: TLabel;
     procedure BtnStartClick(Sender: TObject);
     procedure BtnStopClick(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -27,6 +30,8 @@ type
     procedure BtnWriteKVClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure Button1Click(Sender: TObject);
+    procedure CheckBoxLoggingClick(Sender: TObject);
+    procedure ComboBoxLogLevelChange(Sender: TObject);
   private
     FKV: IKeyValueStore;
     FBridge: TKeyValueHTTPBridge;
@@ -34,6 +39,7 @@ type
     lastLog: string;
     procedure Log(const S: string);
     procedure UpdateKVDisplay;
+    procedure InitializeLogLevels;
   public
   end;
 
@@ -105,16 +111,56 @@ end;
 
 procedure TMainForm.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
+  // First log that we're stopping
+  TSeqLogger.Logger.Log(Information, 'KeyValue Server stopping...');
+  
+  // Stop the server first
   BtnStopClick(nil);
   Timer1.Enabled := False;
+  
+  // Save settings before we disable logging
+  TLoggerSettings.SaveSettings(
+    CheckBoxLogging.Checked,
+    TSeqLogger.StringToLogLevel(ComboBoxLogLevel.Text)
+  );
+  
+  // Clean up other resources
   LogStrings.Free;
+  
+  // Final log message
   TSeqLogger.Logger.Log(Information, 'KeyValue Server stopped');
 end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
+var
+  LogEnabled: Boolean;
+  LogLevel: TLogLevel;
 begin
-  TSeqLogger.Logger.Log(Information, 'KeyValue Server started');
   LogStrings := TStringList.Create;
+  
+  // Initialize logging controls
+  InitializeLogLevels;
+  
+  // Load saved settings
+  TLoggerSettings.LoadSettings(LogEnabled, LogLevel);
+  CheckBoxLogging.Checked := LogEnabled;
+  TSeqLogger.Logger.Enabled := LogEnabled;
+  ComboBoxLogLevel.ItemIndex := Ord(LogLevel);
+  TSeqLogger.Logger.MinLogLevel := LogLevel;
+  
+  TSeqLogger.Logger.Log(Information, 'KeyValue Server started');
+end;
+
+procedure TMainForm.InitializeLogLevels;
+begin
+  ComboBoxLogLevel.Items.Clear;
+  ComboBoxLogLevel.Items.Add('Verbose');
+  ComboBoxLogLevel.Items.Add('Debug');
+  ComboBoxLogLevel.Items.Add('Information');
+  ComboBoxLogLevel.Items.Add('Warning');
+  ComboBoxLogLevel.Items.Add('Error');
+  ComboBoxLogLevel.Items.Add('Fatal');
+  ComboBoxLogLevel.ItemIndex := 2; // Default to Information
 end;
 
 procedure TMainForm.Timer1Timer(Sender: TObject);
@@ -159,6 +205,16 @@ begin
   FKV.GetValue('b', v);
   FKV.GetAll(arr);
   v := v;
+end;
+
+procedure TMainForm.CheckBoxLoggingClick(Sender: TObject);
+begin
+  TSeqLogger.Logger.Enabled := CheckBoxLogging.Checked;
+end;
+
+procedure TMainForm.ComboBoxLogLevelChange(Sender: TObject);
+begin
+  TSeqLogger.Logger.MinLogLevel := TSeqLogger.StringToLogLevel(ComboBoxLogLevel.Text);
 end;
 
 end.

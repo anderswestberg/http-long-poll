@@ -23,9 +23,10 @@ type
     FRetryCount: Integer;
     FTimer: TThread;
     FFlushTimeout: Integer;
+    FEnabled: Boolean;
+    FMinLogLevel: TLogLevel;
 
     procedure SendBatch; // Sends logs in batches
-    function LogLevelToString(Level: TLogLevel): string;
     function FormatMessage(const Template: string; const Values: array of Variant): string;
     class function GetHostIP(aDefault: string): string;
     class function GetApiKey(aDefault: string): string; static;
@@ -33,11 +34,15 @@ type
     constructor Create(const Endpoint: string; const ApiKey: string = ''; BatchSize: Integer = 1000; RetryCount: Integer = 3; FlushTimeout: Integer = DEFAULT_FLUSH_TIMEOUT);
     destructor Destroy; override;
 
+    class function LogLevelToString(Level: TLogLevel): string;
+    class function StringToLogLevel(const S: string): TLogLevel;
     procedure Log(Level: TLogLevel; const MessageText: string; const Properties: TJSONObject = nil); overload;
     procedure Log(Level: TLogLevel; const Template: string; const Values: array of Variant); overload;
     procedure Flush; // Forces flushing logs immediately
 
     class function Logger: TSeqLogger; static;
+    property Enabled: Boolean read FEnabled write FEnabled;
+    property MinLogLevel: TLogLevel read FMinLogLevel write FMinLogLevel;
   end;
 
 implementation
@@ -55,6 +60,8 @@ begin
   FBatchSize := BatchSize;
   FRetryCount := RetryCount;
   FFlushTimeout := FlushTimeout;
+  FEnabled := True; // Default to enabled
+  FMinLogLevel := Information; // Default to Information level
 
   // Initialize HTTP client
   FHttp := TIdHTTP.Create(nil);
@@ -128,7 +135,7 @@ begin
 end;
 
 // Converts TLogLevel to string
-function TSeqLogger.LogLevelToString(Level: TLogLevel): string;
+class function TSeqLogger.LogLevelToString(Level: TLogLevel): string;
 begin
   case Level of
     Verbose: Result := 'Verbose';
@@ -164,6 +171,9 @@ var
   LogEntry: TJSONObject;
   Pair: TJSONPair;
 begin
+  if not FEnabled or (Level < FMinLogLevel) then
+    Exit;
+
   LogEntry := TJSONObject.Create;
   try
     LogEntry.AddPair('@t', DateToISO8601(Now));
@@ -299,6 +309,17 @@ begin
       GetApiKey('f34Ps2tVcCDqQB36R2jD'), 1000, 3, DEFAULT_FLUSH_TIMEOUT);
   end;
   Result := GlobalLogger;
+end;
+
+class function TSeqLogger.StringToLogLevel(const S: string): TLogLevel;
+begin
+  if SameText(S, 'Verbose') then Result := Verbose
+  else if SameText(S, 'Debug') then Result := Debug
+  else if SameText(S, 'Information') then Result := Information
+  else if SameText(S, 'Warning') then Result := Warning
+  else if SameText(S, 'Error') then Result := Error
+  else if SameText(S, 'Fatal') then Result := Fatal
+  else Result := Information;
 end;
 
 initialization

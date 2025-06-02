@@ -1,11 +1,11 @@
-unit MainUnit;
+unit MainClientUnit;
 
 interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  System.DateUtils, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
-  KeyValueClient, Generics.Collections, SeqLogger, VariantUtils;
+  System.DateUtils, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls,
+  Vcl.ExtCtrls, KeyValueClient, Generics.Collections, SeqLogger, LoggerSettings, VariantUtils;
 
 type
   TStressTestThread = class(TThread)
@@ -17,44 +17,60 @@ type
     FLog: TStrings;
     FWrittenKeys: TDictionary<string, Boolean>;
     FClientId: string;
+    FTerminating: Boolean;
     procedure LogMessage(const Msg: string);
     procedure UpdateStats;
   public
     constructor Create(AClient: TKeyValueClient; ALog: TStrings; const AClientId: string);
     destructor Destroy; override;
     procedure Execute; override;
+    procedure SafeTerminate;
     property Operations: Integer read FOperations;
     property Errors: Integer read FErrors;
   end;
 
   TMainForm = class(TForm)
     MemoLog: TMemo;
-    Splitter1: TSplitter;
-    Panel1: TPanel;
-    LabelKey: TLabel;
-    LabelValue: TLabel;
     EditKey: TEdit;
     EditValue: TEdit;
     BtnWrite: TButton;
     BtnRead: TButton;
+    LabelKey: TLabel;
+    LabelValue: TLabel;
+    EditPort: TEdit;
+    LabelPort: TLabel;
+    BtnConnect: TButton;
+    BtnDisconnect: TButton;
+    EditClientId: TEdit;
+    LabelClientId: TLabel;
+    CheckBoxLogging: TCheckBox;
+    ComboBoxLogLevel: TComboBox;
+    LabelLogLevel: TLabel;
+    Panel1: TPanel;
+    Splitter1: TSplitter;
     BtnStartStressTest: TButton;
     BtnStopStressTest: TButton;
     LabelStatus: TLabel;
     LabelInstanceInfo: TLabel;
+    procedure FormCreate(Sender: TObject);
     procedure BtnWriteClick(Sender: TObject);
     procedure BtnReadClick(Sender: TObject);
-    procedure FormCreate(Sender: TObject);
+    procedure BtnConnectClick(Sender: TObject);
+    procedure BtnDisconnectClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure CheckBoxLoggingClick(Sender: TObject);
+    procedure ComboBoxLogLevelChange(Sender: TObject);
     procedure BtnStartStressTestClick(Sender: TObject);
     procedure BtnStopStressTestClick(Sender: TObject);
   private
     FClient: TKeyValueClient;
     FStressTest: TStressTestThread;
     FClientId: string;
-    procedure Log(const S: string);
-    procedure OnClientStateChange(Sender: TObject; NewState: TKeyValueClientState);
-    procedure OnClientValueChange(Sender: TObject; const Key: string; const Value: Variant);
+    procedure Log(const Msg: string);
+    procedure HandleStateChange(Sender: TObject; NewState: TKeyValueClientState);
+    procedure HandleValueChange(Sender: TObject; const Key: string; const Value: Variant);
     procedure UpdateStatusLabel;
+    procedure InitializeLogLevels;
   public
   end;
 
@@ -77,6 +93,7 @@ begin
   FStartTime := 0;
   FOperations := 0;
   FErrors := 0;
+  FTerminating := False;
   FreeOnTerminate := False;
 end;
 
@@ -109,6 +126,12 @@ begin
   end;
 end;
 
+procedure TStressTestThread.SafeTerminate;
+begin
+  FTerminating := True;
+  Terminate;
+end;
+
 procedure TStressTestThread.Execute;
 var
   Key: string;
@@ -117,13 +140,13 @@ var
   LastStatsUpdate: TDateTime;
 begin
   // Wait for client to be connected
-  while not Terminated and (FClient.State <> kvsConnected) do
+  while not FTerminating and not Terminated and (FClient.State <> kvsConnected) do
   begin
     LogMessage('[Stress Test] Waiting for client to connect...');
     Sleep(1000);
   end;
 
-  if Terminated then
+  if FTerminating or Terminated then
     Exit;
 
   FStartTime := Now;
@@ -133,16 +156,19 @@ begin
   // Initialize first 5 keys with client-specific prefix
   for i := 0 to 4 do
   begin
-    if Terminated then
+    if FTerminating or Terminated then
       Exit;
 
     Key := Format('%s.stress.test.%d', [FClientId, i]);
     Value := Format('initial-value-%d', [i]);
     try
-      FClient.SetValue(Key, Value);
-      FWrittenKeys.Add(Key, True);
-      Inc(FOperations);
-      LogMessage(Format('[Stress Test] Initial write: %s = %s', [Key, VarToStr(Value)]));
+      if not FTerminating and not Terminated then
+      begin
+        FClient.SetValue(Key, Value);
+        FWrittenKeys.Add(Key, True);
+        Inc(FOperations);
+        LogMessage(Format('[Stress Test] Initial write: %s = %s', [Key, VarToStr(Value)]));
+      end;
     except
       on E: Exception do
       begin
@@ -153,7 +179,7 @@ begin
   end;
 
   // Main test loop
-  while not Terminated do
+  while not FTerminating and not Terminated do
   begin
     // Randomly choose between read and write
     if Random(2) = 0 then
@@ -161,9 +187,12 @@ begin
       // Read operation
       Key := Format('%s.stress.test.%d', [FClientId, Random(5)]);
       try
-        Value := FClient.GetValue(Key);
-        Inc(FOperations);
-        LogMessage(Format('[Stress Test] Read %s = %s', [Key, VarToStr(Value)]));
+        if not FTerminating and not Terminated then
+        begin
+          Value := FClient.GetValue(Key);
+          Inc(FOperations);
+          LogMessage(Format('[Stress Test] Read %s = %s', [Key, VarToStr(Value)]));
+        end;
       except
         on E: Exception do
         begin
@@ -178,10 +207,13 @@ begin
       Key := Format('%s.stress.test.%d', [FClientId, Random(5)]);
       Value := Format('value-%d', [Random(1000)]);
       try
-        FClient.SetValue(Key, Value);
-        FWrittenKeys.AddOrSetValue(Key, True);
-        Inc(FOperations);
-        LogMessage(Format('[Stress Test] Write %s = %s', [Key, VarToStr(Value)]));
+        if not FTerminating and not Terminated then
+        begin
+          FClient.SetValue(Key, Value);
+          FWrittenKeys.AddOrSetValue(Key, True);
+          Inc(FOperations);
+          LogMessage(Format('[Stress Test] Write %s = %s', [Key, VarToStr(Value)]));
+        end;
       except
         on E: Exception do
         begin
@@ -211,9 +243,21 @@ end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
 var
+  LogEnabled: Boolean;
+  LogLevel: TLogLevel;
   Params: TStringList;
   ServerPort: Integer;
 begin
+  // Initialize logging controls
+  InitializeLogLevels;
+  
+  // Load saved settings
+  TLoggerSettings.LoadSettings(LogEnabled, LogLevel);
+  CheckBoxLogging.Checked := LogEnabled;
+  TSeqLogger.Logger.Enabled := LogEnabled;
+  ComboBoxLogLevel.ItemIndex := Ord(LogLevel);
+  TSeqLogger.Logger.MinLogLevel := LogLevel;
+
   // Parse command line parameters
   Params := TStringList.Create;
   try
@@ -236,6 +280,8 @@ begin
     else
       ServerPort := 8868;
 
+    EditPort.Text := IntToStr(ServerPort);
+    EditClientId.Text := FClientId;
     Caption := Format('Key-Value Client Demo - Instance %s', [FClientId]);
     LabelInstanceInfo.Caption := Format('Instance ID: %s, Server Port: %d', [FClientId, ServerPort]);
   finally
@@ -243,39 +289,56 @@ begin
   end;
 
   TSeqLogger.Logger.Log(Information, 'KeyValue Client Demo started - Instance {ClientId}', ['ClientId', FClientId]);
-  FClient := TKeyValueClient.Create(Format('http://localhost:%d', [ServerPort]));
-  FClient.OnStateChange := OnClientStateChange;
-  FClient.OnValueChange := OnClientValueChange;
-  Log('Client created, waiting for connection...');
-  UpdateStatusLabel;
 end;
 
 procedure TMainForm.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
+  // First log that we're stopping
+  TSeqLogger.Logger.Log(Information, 'KeyValue Client stopping...');
+
+  // Stop stress test first if running
   if Assigned(FStressTest) then
   begin
-    FStressTest.Terminate;
+    FStressTest.SafeTerminate;
     FStressTest.WaitFor;
     FreeAndNil(FStressTest);
   end;
-  FClient.Free;
+  
+  // Now disconnect the client
+  if Assigned(FClient) then
+  begin
+    TSeqLogger.Logger.Log(Information, 'Disconnecting client...');
+    FreeAndNil(FClient);
+  end;
+    
+  // Save settings before we disable logging
+  TLoggerSettings.SaveSettings(
+    CheckBoxLogging.Checked,
+    TSeqLogger.StringToLogLevel(ComboBoxLogLevel.Text)
+  );
+  
+  // Final log message
+  TSeqLogger.Logger.Log(Information, 'KeyValue Client stopped');
 end;
 
-procedure TMainForm.Log(const S: string);
+procedure TMainForm.Log(const Msg: string);
 begin
-  MemoLog.Lines.Add(FormatDateTime('hh:nn:ss', Now) + '  ' + S);
+  MemoLog.Lines.Add(FormatDateTime('hh:nn:ss', Now) + '  ' + Msg);
 end;
 
 procedure TMainForm.UpdateStatusLabel;
 begin
-  case FClient.State of
-    kvsDisconnected: LabelStatus.Caption := 'Status: Disconnected';
-    kvsConnecting: LabelStatus.Caption := 'Status: Connecting...';
-    kvsConnected: LabelStatus.Caption := 'Status: Connected (Long polling active)';
-  end;
+  if not Assigned(FClient) then
+    LabelStatus.Caption := 'Status: Not Created'
+  else
+    case FClient.State of
+      kvsDisconnected: LabelStatus.Caption := 'Status: Disconnected';
+      kvsConnecting: LabelStatus.Caption := 'Status: Connecting...';
+      kvsConnected: LabelStatus.Caption := 'Status: Connected (Long polling active)';
+    end;
 end;
 
-procedure TMainForm.OnClientStateChange(Sender: TObject; NewState: TKeyValueClientState);
+procedure TMainForm.HandleStateChange(Sender: TObject; NewState: TKeyValueClientState);
 begin
   case NewState of
     kvsDisconnected:
@@ -285,6 +348,8 @@ begin
       BtnRead.Enabled := False;
       BtnStartStressTest.Enabled := False;
       BtnStopStressTest.Enabled := False;
+      BtnConnect.Enabled := True;
+      BtnDisconnect.Enabled := False;
     end;
     kvsConnecting:
       Log('Client connecting...');
@@ -295,17 +360,50 @@ begin
       BtnRead.Enabled := True;
       BtnStartStressTest.Enabled := True;
       BtnStopStressTest.Enabled := False;
+      BtnConnect.Enabled := False;
+      BtnDisconnect.Enabled := True;
     end;
   end;
   UpdateStatusLabel;
 end;
 
-procedure TMainForm.OnClientValueChange(Sender: TObject; const Key: string; const Value: Variant);
+procedure TMainForm.HandleValueChange(Sender: TObject; const Key: string; const Value: Variant);
 begin
   Log(Format('Long poll update: %s = %s', [Key, VariantToStringWithType(Value)]));
   // If this is the key we're currently viewing, update the value field
   if SameText(Key, Trim(EditKey.Text)) then
     EditValue.Text := VarToStr(Value);
+end;
+
+procedure TMainForm.BtnConnectClick(Sender: TObject);
+var
+  Port: Integer;
+begin
+  if not TryStrToInt(EditPort.Text, Port) then
+  begin
+    ShowMessage('Invalid port number');
+    Exit;
+  end;
+
+  if Assigned(FClient) then
+    FreeAndNil(FClient);
+
+  FClientId := EditClientId.Text;
+  FClient := TKeyValueClient.Create(Format('http://localhost:%d', [Port]));
+  FClient.OnStateChange := HandleStateChange;
+  FClient.OnValueChange := HandleValueChange;
+  Log('Client created, waiting for connection...');
+  UpdateStatusLabel;
+end;
+
+procedure TMainForm.BtnDisconnectClick(Sender: TObject);
+begin
+  if Assigned(FClient) then
+  begin
+    FClient.Free;
+    FClient := nil;
+    UpdateStatusLabel;
+  end;
 end;
 
 procedure TMainForm.BtnWriteClick(Sender: TObject);
@@ -374,7 +472,7 @@ procedure TMainForm.BtnStopStressTestClick(Sender: TObject);
 begin
   if Assigned(FStressTest) then
   begin
-    FStressTest.Terminate;
+    FStressTest.SafeTerminate;
     FStressTest.WaitFor;
     FreeAndNil(FStressTest);
     BtnStartStressTest.Enabled := True;
@@ -382,6 +480,26 @@ begin
   end;
 end;
 
-end.
+procedure TMainForm.InitializeLogLevels;
+begin
+  ComboBoxLogLevel.Items.Clear;
+  ComboBoxLogLevel.Items.Add('Verbose');
+  ComboBoxLogLevel.Items.Add('Debug');
+  ComboBoxLogLevel.Items.Add('Information');
+  ComboBoxLogLevel.Items.Add('Warning');
+  ComboBoxLogLevel.Items.Add('Error');
+  ComboBoxLogLevel.Items.Add('Fatal');
+  ComboBoxLogLevel.ItemIndex := 2; // Default to Information
+end;
 
+procedure TMainForm.CheckBoxLoggingClick(Sender: TObject);
+begin
+  TSeqLogger.Logger.Enabled := CheckBoxLogging.Checked;
+end;
 
+procedure TMainForm.ComboBoxLogLevelChange(Sender: TObject);
+begin
+  TSeqLogger.Logger.MinLogLevel := TSeqLogger.StringToLogLevel(ComboBoxLogLevel.Text);
+end;
+
+end. 
