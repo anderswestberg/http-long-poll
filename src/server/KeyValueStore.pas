@@ -120,7 +120,7 @@ begin
     if Changed then
     begin
       AddChange(Key, StoredValue, SourceId);
-      TSeqLogger.Logger.Log(Information, Format('Store: Value changed key=%s value=%s source=%s', [Key, VarToStr(StoredValue), SourceId]));
+      TSeqLogger.Logger.Log(Information, 'Store: Value changed key={Key} value={Value} source={Source}', ['Key', Key, 'Value', VarToStr(StoredValue), 'Source', SourceId]);
     end;
   finally
     FDataLock.Release;
@@ -138,7 +138,7 @@ begin
   if Length(Updates) = 0 then
     Exit;
 
-  TSeqLogger.Logger.Log(Information, Format('Store: Batch update of %d values from source %s', [Length(Updates), SourceId]));
+  TSeqLogger.Logger.Log(Information, 'Store: Batch update of {Count} values from source {Source}', ['Count', Length(Updates), 'Source', SourceId]);
 
   FDataLock.Acquire;
   try
@@ -151,8 +151,8 @@ begin
       if Changed then
       begin
         AddChange(Updates[i].Key, StoredValue, SourceId);
-        TSeqLogger.Logger.Log(Information, Format('Store: Batch value changed key=%s value=%s source=%s', 
-          [Updates[i].Key, VarToStr(StoredValue), SourceId]));
+        TSeqLogger.Logger.Log(Information, 'Store: Batch value changed key={Key} value={Value} source={Source}',
+          ['Key', Updates[i].Key, 'Value', VarToStr(Updates[i].Value), 'Source', SourceId]);
       end;
     end;
   finally
@@ -206,7 +206,7 @@ begin
   begin
     while FChangeLog.Count > CHANGELOG_PRUNE_COUNT do
       FChangeLog.Delete(0); // delete oldest
-    TSeqLogger.Logger.Log(Information, Format('Store: Pruned %d old changes from changelog', [PrunedCount]));
+    TSeqLogger.Logger.Log(Information, 'Store: Pruned {Count} old changes from changelog', ['Count', PrunedCount]);
   end;
 end;
 
@@ -228,8 +228,8 @@ begin
           Break;
       end;
     Changes := Tmp.ToArray;
-    TSeqLogger.Logger.Log(Information, Format('Store: Retrieved %d changes since ID %d for source %s', 
-      [Length(Changes), LastId, SourceId]));
+    TSeqLogger.Logger.Log(Information, 'Store: Retrieved {Count} changes since ID {LastId} for source {Source}',
+      ['Count', Length(Changes), 'LastId', LastId, 'Source', SourceId]);
   finally
     FDataLock.Release;
     Tmp.Free;

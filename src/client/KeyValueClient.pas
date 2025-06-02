@@ -100,7 +100,7 @@ begin
   FClient := TKVHttpClient.Create(FBaseUrl);
   FClient.ClientId := FClientId;
 
-  TSeqLogger.Logger.Log(Information, Format('KeyValueClient created for %s with ID %s', [FBaseUrl, FClientId]));
+  TSeqLogger.Logger.Log(Information, 'KeyValueClient created for {BaseUrl} with ID {ClientId}', ['BaseUrl', FBaseUrl, 'ClientId', FClientId]);
 
   SetState(kvsDisconnected);
   Initialize;
@@ -123,7 +123,7 @@ begin
 
   FClient.Free;
   FLock.Free;
-  TSeqLogger.Logger.Log(Information, Format('KeyValueClient destroyed for %s', [FBaseUrl]));
+  TSeqLogger.Logger.Log(Information, 'KeyValueClient destroyed for {BaseUrl}', ['BaseUrl', FBaseUrl]);
   inherited;
 end;
 
@@ -168,7 +168,7 @@ begin
     if FState = kvsDisconnected then
     begin
       SetState(kvsConnecting);
-      TSeqLogger.Logger.Log(Information, Format('KeyValueClient attempting connection to %s', [FBaseUrl]));
+      TSeqLogger.Logger.Log(Information, 'KeyValueClient attempting connection to {BaseUrl}', ['BaseUrl', FBaseUrl]);
 
       try
         FLock.Acquire;
@@ -183,14 +183,14 @@ begin
           Sleep(100);
           
           SetState(kvsConnected);
-          TSeqLogger.Logger.Log(Information, Format('KeyValueClient connected to %s', [FBaseUrl]));
+          TSeqLogger.Logger.Log(Information, 'KeyValueClient connected to {BaseUrl}', ['BaseUrl', FBaseUrl]);
         finally
           FLock.Release;
         end;
       except
         on E: Exception do
         begin
-          TSeqLogger.Logger.Log(Warning, Format('KeyValueClient connection failed: %s', [E.Message]));
+          TSeqLogger.Logger.Log(Warning, 'KeyValueClient connection failed: {Error}', ['Error', E.Message]);
           SetState(kvsDisconnected);
         end;
       end;
@@ -206,7 +206,7 @@ begin
   if not Assigned(FLongPollThread) and not FTerminating then
   begin
     FLongPollThread := TLongPollThread.Create(Self);
-    TSeqLogger.Logger.Log(Information, Format('KeyValueClient started long polling from ID %d', [FLastSeenId]));
+    TSeqLogger.Logger.Log(Information, 'KeyValueClient started long polling from ID {LastSeenId}', ['LastSeenId', FLastSeenId]);
   end;
 end;
 
@@ -242,7 +242,7 @@ begin
     except
       on E: Exception do
       begin
-        TSeqLogger.Logger.Log(Error, Format('KeyValueClient long poll error: %s', [E.Message]));
+        TSeqLogger.Logger.Log(Error, 'KeyValueClient long poll error: {Error}', ['Error', E.Message]);
         if not FTerminating then
         begin
           SetState(kvsDisconnected);

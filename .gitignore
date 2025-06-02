@@ -22,3 +22,11 @@ demo/TestLongPoll.exe
 demo/TestLongPoll.map
 
 demo/KVClientTest/KVClienttest.map
+
+demo/KeyValueClientDemo/KeyValueClientDemo.exe
+
+demo/KeyValueClientDemo/KeyValueClientDemo.map
+
+demo/KeyValueServerDemo.exe
+
+demo/KeyValueServerDemo.map

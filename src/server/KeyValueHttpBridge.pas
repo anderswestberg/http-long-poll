@@ -156,14 +156,14 @@ begin
   if EqPos > 0 then
     Path := Copy(Path, 1, EqPos - 1);
 
-  TSeqLogger.Logger.Log(Information, Format('HTTP GET request from client %s: %s', [ClientId, URL]));
+  TSeqLogger.Logger.Log(Information, 'HTTP GET request from client {ClientId}: {URL}', ['ClientId', ClientId, 'URL', URL]);
 
   // /values/all - get all key/value pairs
   if SameText(Path, '/values/all') then
   begin
     Doc.InitArray([]);
     FKV.GetAll(AllKeys);
-    TSeqLogger.Logger.Log(Information, Format('Client %s requested all keys (%d keys)', [ClientId, Length(AllKeys)]));
+    TSeqLogger.Logger.Log(Information, 'Client {ClientId} requested all keys ({Count} keys)', ['ClientId', ClientId, 'Count', Length(AllKeys)]);
     for var i := 0 to High(AllKeys) do
     begin
       Doc.AddItem(_Obj([
@@ -180,7 +180,7 @@ begin
   if SameText(Path, '/changes/latest') then
   begin
     var LatestId := FKV.GetLatestChangeId;
-    TSeqLogger.Logger.Log(Information, Format('Client %s requested latest change ID: %d', [ClientId, LatestId]));
+    TSeqLogger.Logger.Log(Information, 'Client {ClientId} requested latest change ID: {LatestId}', ['ClientId', ClientId, 'LatestId', LatestId]);
     Doc.InitObject([
       'id', LatestId
     ]);
@@ -195,7 +195,7 @@ begin
     Key := Args.RequestInfo.Params.Values['key'];
     if Key = '' then
     begin
-      TSeqLogger.Logger.Log(Warning, Format('Client %s GET request missing key parameter', [ClientId]));
+      TSeqLogger.Logger.Log(Warning, 'Client {ClientId} GET request missing key parameter', ['ClientId', ClientId]);
       ResponseText := '{"error":"missing key"}';
       ResponseCode := 400;
       Exit;
@@ -203,7 +203,7 @@ begin
 
     if FKV.GetValue(Key, Value) then
     begin
-      TSeqLogger.Logger.Log(Information, Format('Client %s read key %s = %s', [ClientId, Key, VariantSaveJSON(Value)]));
+      TSeqLogger.Logger.Log(Information, 'Client {ClientId} read key {Key} = {Value}', ['ClientId', ClientId, 'Key', Key, 'Value', VariantSaveJSON(Value)]);
       Doc.InitObject([
         'key', Key,
         'value', Value
@@ -213,7 +213,7 @@ begin
     end
     else
     begin
-      TSeqLogger.Logger.Log(Information, Format('Client %s attempted to read non-existent key %s', [ClientId, Key]));
+      TSeqLogger.Logger.Log(Information, 'Client {ClientId} attempted to read non-existent key {Key}', ['ClientId', ClientId, 'Key', Key]);
       Doc.InitObject(['error', 'not found']);
       ResponseText := string(Doc.ToJSON);
       ResponseCode := 404;
@@ -226,13 +226,13 @@ begin
   begin
     if not TryStrToInt64(Args.RequestInfo.Params.Values['since'], LastId) then
     begin
-      TSeqLogger.Logger.Log(Warning, Format('Client %s long poll request has invalid since parameter', [ClientId]));
+      TSeqLogger.Logger.Log(Warning, 'Client {ClientId} long poll request has invalid since parameter', ['ClientId', ClientId]);
       ResponseText := '{"error":"invalid since parameter"}';
       ResponseCode := 400;
       Exit;
     end;
 
-    TSeqLogger.Logger.Log(Information, Format('Client %s started long poll from ID %d', [ClientId, LastId]));
+    TSeqLogger.Logger.Log(Information, 'Client {ClientId} started long poll from ID {LastId}', ['ClientId', ClientId, 'LastId', LastId]);
     FKV.GetChangesSince(LastId, ClientId, Changes);
     if Length(Changes) > 0 then
     begin
@@ -269,7 +269,7 @@ begin
   if EqPos > 0 then
     Path := Copy(Path, 1, EqPos - 1);
 
-  TSeqLogger.Logger.Log(Information, Format('HTTP POST request from client %s: %s', [ClientId, URL]));
+  TSeqLogger.Logger.Log(Information, 'HTTP POST request from client {ClientId}: {URL}', ['ClientId', ClientId, 'URL', URL]);
 
   if SameText(Path, '/values') then
   begin
@@ -286,15 +286,14 @@ begin
 
     if Key = '' then
     begin
-      TSeqLogger.Logger.Log(Error, Format('Client %s: key is missing', [ClientId]));
+      TSeqLogger.Logger.Log(Error, 'Client {ClientId}: key is missing', ['ClientId', ClientId]);
       Doc.InitObject(['error', 'missing key']);
       ResponseText := string(Doc.ToJSON);
       ResponseCode := 400;
       Exit;
     end;
 
-    TSeqLogger.Logger.Log(Information, Format('Client %s wrote key %s = %s',
-      [ClientId, Key, VariantToString(Value)]));
+    TSeqLogger.Logger.Log(Information, 'Client {ClientId} wrote key {Key} = {Value}', ['ClientId', ClientId, 'Key', Key, 'Value', VariantSaveJSON(Value)]);
     FKV.SetValue(Key, Value, ClientId);
     ResponseText := '{"status":"ok"}';
     ResponseCode := 200;
@@ -373,7 +372,7 @@ end;
 // Called on any change (manual, HTTP, etc)
 procedure TKeyValueHTTPBridge.HandleValueChanged(Sender: TObject; const Key: string; const Value: variant; const SourceId: string);
 begin
-  TSeqLogger.Logger.Log(Information, Format('Value changed: key=%s value=%s source=%s', [Key, VariantSaveJSON(Value), SourceId]));
+  TSeqLogger.Logger.Log(Information, 'Value changed: key={Key} value={Value} source={Source}', ['Key', Key, 'Value', VariantSaveJSON(Value), 'Source', SourceId]);
   NotifyLongPoll;
 end;
 

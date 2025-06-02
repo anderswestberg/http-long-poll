@@ -62,12 +62,12 @@ begin
   FIdHTTP_LongPoll.IOHandler.MaxLineLength := 16384;
   
   FClientId := ''; // Empty by default
-  TSeqLogger.Logger.Log(Information, Format('HTTP client created for %s', [BaseUrl]));
+  TSeqLogger.Logger.Log(Information, 'HTTP client created for {BaseUrl}', ['BaseUrl', BaseUrl]);
 end;
 
 destructor TKVHttpClient.Destroy;
 begin
-  TSeqLogger.Logger.Log(Information, Format('HTTP client for %s destroyed', [BaseUrl]));
+  TSeqLogger.Logger.Log(Information, 'HTTP client for {BaseUrl} destroyed', ['BaseUrl', BaseUrl]);
   CancelLongPoll;
   FIdHTTP.Free;
   FIdHTTP_LongPoll.Free;
@@ -85,7 +85,7 @@ var
   Response: string;
   Url: string;
 begin
-  TSeqLogger.Logger.Log(Information, Format('Client %s reading key %s', [FClientId, Key]));
+  TSeqLogger.Logger.Log(Information, 'Client {ClientId} reading key {Key}', ['ClientId', FClientId, 'Key', Key]);
   AddClientIdHeader(FIdHTTP);  // Use regular client
   try
     Url := FBaseUrl + '/values?key=' + TNetEncoding.URL.Encode(Key);
@@ -94,11 +94,11 @@ begin
     Response := FIdHTTP.Get(Url);
     Doc.InitJSON(RawUTF8(Response));
     Result := Doc.GetValueOrNull('value');
-    TSeqLogger.Logger.Log(Information, Format('Client %s read key %s = %s', [FClientId, Key, VarToStr(Result)]));
+    TSeqLogger.Logger.Log(Information, 'Client {ClientId} read key {Key} = {Value}', ['ClientId', FClientId, 'Key', Key, 'Value', VarToStr(Result)]);
   except
     on E: Exception do
     begin
-      TSeqLogger.Logger.Log(Error, Format('Client %s failed to read key %s: %s', [FClientId, Key, E.Message]));
+      TSeqLogger.Logger.Log(Error, 'Client {ClientId} failed to read key {Key}: {Error}', ['ClientId', FClientId, 'Key', Key, 'Error', E.Message]);
       raise;
     end;
   end;
@@ -110,7 +110,7 @@ var
   Source: TStringStream;
   Url: string;
 begin
-  TSeqLogger.Logger.Log(Information, Format('Client %s writing key %s = %s', [FClientId, Key, VarToStr(Value)]));
+  TSeqLogger.Logger.Log(Information, 'Client {ClientId} writing key {Key} = {Value}', ['ClientId', FClientId, 'Key', Key, 'Value', VarToStr(Value)]);
   AddClientIdHeader(FIdHTTP);
   
   Doc.InitObject([
@@ -123,11 +123,11 @@ begin
     if FClientId <> '' then
       Url := Url + '?clientId=' + TNetEncoding.URL.Encode(FClientId);
     FIdHTTP.Post(Url, Source);
-    TSeqLogger.Logger.Log(Information, Format('Client %s successfully wrote key %s', [FClientId, Key]));
+    TSeqLogger.Logger.Log(Information, 'Client {ClientId} successfully wrote key {Key}', ['ClientId', FClientId, 'Key', Key]);
   except
     on E: Exception do
     begin
-      TSeqLogger.Logger.Log(Error, Format('Client %s failed to write key %s: %s', [FClientId, Key, E.Message]));
+      TSeqLogger.Logger.Log(Error, 'Client {ClientId} failed to write key {Key}: {Error}', ['ClientId', FClientId, 'Key', Key, 'Error', E.Message]);
       raise;
     end;
   end;
@@ -141,7 +141,7 @@ var
   Source: TStringStream;
   Url: string;
 begin
-  TSeqLogger.Logger.Log(Information, Format('Client %s starting batch write of %d values', [FClientId, Length(KeyValues)]));
+  TSeqLogger.Logger.Log(Information, 'Client {ClientId} starting batch write of {Count} values', ['ClientId', FClientId, 'Count', Length(KeyValues)]);
   AddClientIdHeader(FIdHTTP);
 
   Doc.InitArray([]);
@@ -157,11 +157,11 @@ begin
       if FClientId <> '' then
         Url := Url + '?clientId=' + TNetEncoding.URL.Encode(FClientId);
       FIdHTTP.Post(Url, Source);
-      TSeqLogger.Logger.Log(Information, Format('Client %s successfully completed batch write', [FClientId]));
+      TSeqLogger.Logger.Log(Information, 'Client {ClientId} successfully completed batch write', ['ClientId', FClientId]);
     except
       on E: Exception do
       begin
-        TSeqLogger.Logger.Log(Error, Format('Client %s failed batch write: %s', [FClientId, E.Message]));
+        TSeqLogger.Logger.Log(Error, 'Client {ClientId} failed batch write: {Error}', ['ClientId', FClientId, 'Error', E.Message]);
         raise;
       end;
     end;
@@ -174,7 +174,7 @@ procedure TKVHttpClient.CancelLongPoll;
 begin
   if Assigned(FIdHTTP_LongPoll) then
   begin
-    TSeqLogger.Logger.Log(Information, Format('Client %s cancelling long poll', [FClientId]));
+    TSeqLogger.Logger.Log(Information, 'Client {ClientId} cancelling long poll', ['ClientId', FClientId]);
     try
       FIdHTTP_LongPoll.Disconnect;
     except
@@ -192,7 +192,7 @@ var
   i: Integer;
   Url: string;
 begin
-  TSeqLogger.Logger.Log(Information, Format('Client %s starting long poll from ID %d', [FClientId, SinceId]));
+  TSeqLogger.Logger.Log(Information, 'Client {ClientId} starting long poll from ID {SinceId}', ['ClientId', FClientId, 'SinceId', SinceId]);
   SetLength(Changes, 0);
   try
     AddClientIdHeader(FIdHTTP_LongPoll);
@@ -213,8 +213,8 @@ begin
           Changes[i].Key := Item.S['key'];
           Changes[i].Value := Item.GetValueOrNull('value');
           Changes[i].Timestamp := Item.S['timestamp'];
-          TSeqLogger.Logger.Log(Information, Format('Client %s received change: id=%d key=%s value=%s time=%s', 
-            [FClientId, Changes[i].Id, Changes[i].Key, VarToStr(Changes[i].Value), Changes[i].Timestamp]));
+          TSeqLogger.Logger.Log(Information, 'Client {ClientId} received change: id={ChangeId} key={Key} value={Value} time={Time}',
+            ['ClientId', FClientId, 'ChangeId', Changes[i].Id, 'Key', Changes[i].Key, 'Value', VarToStr(Changes[i].Value), 'Time', Changes[i].Timestamp]);
         end;
         Result := Doc.Count > 0;
       end 
@@ -225,31 +225,31 @@ begin
       Result := False;
 
     if not Result then
-      TSeqLogger.Logger.Log(Information, Format('Client %s long poll timeout (no changes)', [FClientId]));
+      TSeqLogger.Logger.Log(Information, 'Client {ClientId} long poll timeout (no changes)', ['ClientId', FClientId]);
   except
     on E: EIdHTTPProtocolException do
     begin
       // 204 No Content = timeout
       if E.ErrorCode = 204 then
       begin
-        TSeqLogger.Logger.Log(Information, Format('Client %s long poll timeout (204)', [FClientId]));
+        TSeqLogger.Logger.Log(Information, 'Client {ClientId} long poll timeout (204)', ['ClientId', FClientId]);
         Result := False;
       end
       else
       begin
-        TSeqLogger.Logger.Log(Error, Format('Client %s long poll HTTP error: %s', [FClientId, E.Message]));
+        TSeqLogger.Logger.Log(Error, 'Client {ClientId} long poll HTTP error: {Error}', ['ClientId', FClientId, 'Error', E.Message]);
         raise;
       end;
     end;
     on E: EIdSocketError do
     begin
       // Socket error (e.g., connection closed) = cancelled
-      TSeqLogger.Logger.Log(Warning, Format('Client %s long poll socket error: %s', [FClientId, E.Message]));
+      TSeqLogger.Logger.Log(Warning, 'Client {ClientId} long poll socket error: {Error}', ['ClientId', FClientId, 'Error', E.Message]);
       Result := False;
     end;
     on E: Exception do
     begin
-      TSeqLogger.Logger.Log(Error, Format('Client %s long poll error: %s', [FClientId, E.Message]));
+      TSeqLogger.Logger.Log(Error, 'Client {ClientId} long poll error: {Error}', ['ClientId', FClientId, 'Error', E.Message]);
       raise;
     end;
   end;
@@ -260,7 +260,7 @@ var
   Doc: TDocVariantData;
   Url: string;
 begin
-  TSeqLogger.Logger.Log(Information, Format('Client %s requesting latest change ID', [FClientId]));
+  TSeqLogger.Logger.Log(Information, 'Client {ClientId} requesting latest change ID', ['ClientId', FClientId]);
   AddClientIdHeader(FIdHTTP);
   try
     Url := FBaseUrl + '/changes/latest';
@@ -268,11 +268,11 @@ begin
       Url := Url + '?clientId=' + TNetEncoding.URL.Encode(FClientId);
     Doc.InitJSON(RawUTF8(FIdHTTP.Get(Url)));
     Result := Doc.I['id'];
-    TSeqLogger.Logger.Log(Information, Format('Client %s received latest change ID: %d', [FClientId, Result]));
+    TSeqLogger.Logger.Log(Information, 'Client {ClientId} received latest change ID: {ChangeId}', ['ClientId', FClientId, 'ChangeId', Result]);
   except
     on E: Exception do
     begin
-      TSeqLogger.Logger.Log(Error, Format('Client %s failed to get latest change ID: %s', [FClientId, E.Message]));
+      TSeqLogger.Logger.Log(Error, 'Client {ClientId} failed to get latest change ID: {Error}', ['ClientId', FClientId, 'Error', E.Message]);
       raise;
     end;
   end;
@@ -284,7 +284,7 @@ var
   i: Integer;
   Url: string;
 begin
-  TSeqLogger.Logger.Log(Information, Format('Client %s requesting all values', [FClientId]));
+  TSeqLogger.Logger.Log(Information, 'Client {ClientId} requesting all values', ['ClientId', FClientId]);
   AddClientIdHeader(FIdHTTP);
   try
     Url := FBaseUrl + '/values/all';
@@ -294,13 +294,13 @@ begin
     if Doc.Kind = dvArray then
     begin
       SetLength(Result, Doc.Count);
-      TSeqLogger.Logger.Log(Information, Format('Client %s received %d values', [FClientId, Doc.Count]));
+      TSeqLogger.Logger.Log(Information, 'Client {ClientId} received {Count} values', ['ClientId', FClientId, 'Count', Doc.Count]);
       for i := 0 to Doc.Count-1 do
       begin
         Result[i].Key := Doc.Values[i].S['key'];
         Result[i].Value := Doc.Values[i].GetValueOrNull('value');
-        TSeqLogger.Logger.Log(Information, Format('Client %s received value: %s = %s', 
-          [FClientId, Result[i].Key, VarToStr(Result[i].Value)]));
+        TSeqLogger.Logger.Log(Information, 'Client {ClientId} received value: {Key} = {Value}',
+          ['ClientId', FClientId, 'Key', Result[i].Key, 'Value', VarToStr(Result[i].Value)]);
       end;
     end
     else
@@ -308,7 +308,7 @@ begin
   except
     on E: Exception do
     begin
-      TSeqLogger.Logger.Log(Error, Format('Client %s failed to get all values: %s', [FClientId, E.Message]));
+      TSeqLogger.Logger.Log(Error, 'Client {ClientId} failed to get all values: {Error}', ['ClientId', FClientId, 'Error', E.Message]);
       raise;
     end;
   end;

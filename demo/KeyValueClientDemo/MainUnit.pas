@@ -21,6 +21,7 @@ type
     BtnStartStressTest: TButton;
     BtnStopStressTest: TButton;
     StressTestTimer: TTimer;
+    LabelStatus: TLabel;
     procedure BtnWriteClick(Sender: TObject);
     procedure BtnReadClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -39,6 +40,7 @@ type
     procedure UpdateStressTestStats;
     procedure OnClientStateChange(Sender: TObject; NewState: TKeyValueClientState);
     procedure OnClientValueChange(Sender: TObject; const Key: string; const Value: Variant);
+    procedure UpdateStatusLabel;
   public
   end;
 
@@ -57,6 +59,7 @@ begin
   FClient.OnValueChange := OnClientValueChange;
   FWrittenKeys := TDictionary<string, Boolean>.Create;
   Log('Client created, waiting for connection...');
+  UpdateStatusLabel;
 end;
 
 procedure TMainForm.FormClose(Sender: TObject; var Action: TCloseAction);
@@ -68,6 +71,15 @@ end;
 procedure TMainForm.Log(const S: string);
 begin
   MemoLog.Lines.Add(FormatDateTime('hh:nn:ss', Now) + '  ' + S);
+end;
+
+procedure TMainForm.UpdateStatusLabel;
+begin
+  case FClient.State of
+    kvsDisconnected: LabelStatus.Caption := 'Status: Disconnected';
+    kvsConnecting: LabelStatus.Caption := 'Status: Connecting...';
+    kvsConnected: LabelStatus.Caption := 'Status: Connected (Long polling active)';
+  end;
 end;
 
 procedure TMainForm.OnClientStateChange(Sender: TObject; NewState: TKeyValueClientState);
@@ -85,18 +97,22 @@ begin
       Log('Client connecting...');
     kvsConnected:
     begin
-      Log('Client connected');
+      Log('Client connected - Long polling started');
       BtnWrite.Enabled := True;
       BtnRead.Enabled := True;
       BtnStartStressTest.Enabled := True;
       BtnStopStressTest.Enabled := False;
     end;
   end;
+  UpdateStatusLabel;
 end;
 
 procedure TMainForm.OnClientValueChange(Sender: TObject; const Key: string; const Value: Variant);
 begin
-  Log(Format('Value changed: %s = %s', [Key, VarToStr(Value)]));
+  Log(Format('Long poll update: %s = %s', [Key, VarToStr(Value)]));
+  // If this is the key we're currently viewing, update the value field
+  if SameText(Key, Trim(EditKey.Text)) then
+    EditValue.Text := VarToStr(Value);
 end;
 
 procedure TMainForm.BtnWriteClick(Sender: TObject);

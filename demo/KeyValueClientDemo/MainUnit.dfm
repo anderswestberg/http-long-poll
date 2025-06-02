@@ -1,110 +1,125 @@
 object MainForm: TMainForm
   Left = 0
   Top = 0
-  Caption = 'KeyValue Client Demo'
-  ClientHeight = 387
-  ClientWidth = 532
+  Caption = 'Key-Value Client Demo'
+  ClientHeight = 441
+  ClientWidth = 624
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = True
-  Position = poScreenCenter
+  OldCreateOrder = False
   OnClose = FormClose
   OnCreate = FormCreate
   PixelsPerInch = 96
   TextHeight = 13
   object Splitter1: TSplitter
     Left = 0
-    Top = 171
-    Width = 532
-    Height = 5
+    Top = 337
+    Width = 624
+    Height = 3
     Cursor = crVSplit
     Align = alBottom
-    Beveled = True
-    ExplicitTop = 77
+    ExplicitTop = 0
+    ExplicitWidth = 0
   end
   object MemoLog: TMemo
     Left = 0
-    Top = 176
-    Width = 532
-    Height = 211
+    Top = 340
+    Width = 624
+    Height = 101
     Align = alBottom
-    ReadOnly = True
     ScrollBars = ssVertical
     TabOrder = 0
   end
   object Panel1: TPanel
     Left = 0
     Top = 0
-    Width = 532
-    Height = 171
+    Width = 624
+    Height = 337
     Align = alClient
+    BevelOuter = bvNone
     TabOrder = 1
     object LabelKey: TLabel
       Left = 16
       Top = 16
-      Width = 22
+      Width = 19
       Height = 13
-      Caption = 'Key:'
+      Caption = 'Key'
     end
     object LabelValue: TLabel
-      Left = 200
-      Top = 16
-      Width = 30
+      Left = 16
+      Top = 43
+      Width = 26
       Height = 13
-      Caption = 'Value:'
+      Caption = 'Value'
+    end
+    object LabelStatus: TLabel
+      Left = 16
+      Top = 80
+      Width = 585
+      Height = 13
+      AutoSize = False
+      Caption = 'Status: Disconnected'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -11
+      Font.Name = 'Tahoma'
+      Font.Style = [fsBold]
+      ParentFont = False
     end
     object EditKey: TEdit
-      Left = 44
+      Left = 56
       Top = 13
-      Width = 120
+      Width = 545
       Height = 21
       TabOrder = 0
-      Text = 'P15.PressureOffset'
     end
     object EditValue: TEdit
-      Left = 240
-      Top = 13
-      Width = 160
+      Left = 56
+      Top = 40
+      Width = 545
       Height = 21
       TabOrder = 1
     end
     object BtnWrite: TButton
-      Left = 320
-      Top = 40
-      Width = 80
+      Left = 56
+      Top = 112
+      Width = 75
       Height = 25
-      Caption = 'Write Key/Val'
+      Caption = 'Write'
+      Enabled = False
       TabOrder = 2
       OnClick = BtnWriteClick
     end
     object BtnRead: TButton
-      Left = 420
-      Top = 40
-      Width = 80
+      Left = 137
+      Top = 112
+      Width = 75
       Height = 25
-      Caption = 'Read Key'
+      Caption = 'Read'
+      Enabled = False
       TabOrder = 3
       OnClick = BtnReadClick
     end
     object BtnStartStressTest: TButton
-      Left = 44
-      Top = 71
-      Width = 120
+      Left = 56
+      Top = 152
+      Width = 75
       Height = 25
-      Caption = 'Start Stress Test'
+      Caption = 'Start Test'
+      Enabled = False
       TabOrder = 4
       OnClick = BtnStartStressTestClick
     end
     object BtnStopStressTest: TButton
-      Left = 180
-      Top = 71
-      Width = 120
+      Left = 137
+      Top = 152
+      Width = 75
       Height = 25
-      Caption = 'Stop Stress Test'
+      Caption = 'Stop Test'
       Enabled = False
       TabOrder = 5
       OnClick = BtnStopStressTestClick
@@ -113,7 +128,7 @@ object MainForm: TMainForm
   object StressTestTimer: TTimer
     Enabled = False
     OnTimer = StressTestTimerTimer
-    Left = 480
-    Top = 8
+    Left = 272
+    Top = 144
   end
 end
