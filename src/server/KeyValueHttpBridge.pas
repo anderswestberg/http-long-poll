@@ -331,17 +331,28 @@ begin
     BatchDoc.InitJSON(RawUTF8(Body));
     if BatchDoc.Kind = dvArray then
     begin
+      TSeqLogger.Logger.Log(Information, 'Client {ClientId} starting batch write of {Count} values', ['ClientId', ClientId, 'Count', BatchDoc.Count]);
+      
+      // First collect all updates
+      var Updates: TArray<TPair<string, Variant>>;
+      SetLength(Updates, BatchDoc.Count);
       for i := 0 to BatchDoc.Count-1 do
       begin
         Key := BatchDoc.Values[i].S['key'];
         Value := BatchDoc.Values[i].GetValueOrNull('value');
-        
-        if Key <> '' then
-          FKV.SetValue(Key, Value, ClientId);
+        Updates[i].Key := Key;
+        Updates[i].Value := Value;
       end;
+      
+      // Then apply them all at once
+      if Length(Updates) > 0 then
+        FKV.SetValues(Updates, ClientId);
+        
       Doc.InitObject(['status', 'ok']);
       ResponseText := string(Doc.ToJSON);
       ResponseCode := 200;
+      
+      TSeqLogger.Logger.Log(Information, 'Client {ClientId} completed batch write of {Count} values', ['ClientId', ClientId, 'Count', BatchDoc.Count]);
     end
     else
     begin
@@ -411,21 +422,37 @@ begin
     Exit;
   end;
 
-  // Just before waiting, check again in case of race
-  FKV.GetChangesSince(LastId, ClientId, Changes);
-  if Length(Changes) > 0 then
-  begin
-    ResponseText := ChangesToJSON(Changes);
-    ResponseCode := 200;
-    Exit;
-  end;
-
+  // Create context first
   Ctx := TLongPollContext.Create;
   Ctx.LastId := LastId;
   Ctx.ClientId := ClientId;
   Ctx.RequestedAt := Now;
   Ctx.WaitEvent := TEvent.Create(nil, True, False, '');
+
+  // Add context to list before checking for changes
   FLongPollContexts.Add(Ctx);
+
+  // Double-check for changes after adding context but before waiting
+  FKV.GetChangesSince(LastId, ClientId, Changes);
+  if Length(Changes) > 0 then
+  begin
+    ResponseText := ChangesToJSON(Changes);
+    ResponseCode := 200;
+    
+    // Remove our context since we're not going to wait
+    L := FLongPollContexts.LockList;
+    try
+      i := L.IndexOf(Ctx);
+      if i >= 0 then
+        L.Delete(i);
+    finally
+      FLongPollContexts.UnlockList;
+    end;
+    
+    Ctx.WaitEvent.Free;
+    Ctx.Free;
+    Exit;
+  end;
 
   TSeqLogger.Logger.Log(Information, 'Added long poll context for client {ClientId} waiting for changes after ID {LastId}', 
     ['ClientId', ClientId, 'LastId', LastId]);
@@ -433,6 +460,7 @@ begin
   // Wait for up to 30 seconds for change
   if Ctx.WaitEvent.WaitFor(30000) = wrSignaled then
   begin
+    // Re-check for changes after being signaled
     FKV.GetChangesSince(Ctx.LastId, Ctx.ClientId, Changes);
     if Length(Changes) > 0 then
     begin

@@ -131,6 +131,7 @@ procedure TDictionaryKeyValueStore.SetValues(const Updates: array of TPair<strin
 var
   i: Integer;
   Changed: Boolean;
+  ChangedUpdates: TList<TPair<string, Variant>>;
   StoredValue: Variant;
 begin
   if Length(Updates) = 0 then
@@ -138,29 +139,38 @@ begin
 
   TSeqLogger.Logger.Log(Information, 'Store: Batch update of {Count} values from source {Source}', ['Count', Length(Updates), 'Source', SourceId]);
 
-  FDataLock.Acquire;
+  ChangedUpdates := TList<TPair<string, Variant>>.Create;
   try
-    for i := 0 to High(Updates) do
-    begin
-      StoredValue := Updates[i].Value;
-      Changed := (not FData.ContainsKey(Updates[i].Key)) or (FData[Updates[i].Key] <> Updates[i].Value);
-      FData.AddOrSetValue(Updates[i].Key, Updates[i].Value);
-
-      if Changed then
+    FDataLock.Acquire;
+    try
+      // First pass: collect all changes that will occur
+      for i := 0 to High(Updates) do
       begin
-        AddChange(Updates[i].Key, StoredValue, SourceId);
-        TSeqLogger.Logger.Log(Information, 'Store: Batch value changed key={Key} value={Value} source={Source}',
-          ['Key', Updates[i].Key, 'Value', VarToStr(Updates[i].Value), 'Source', SourceId]);
+        StoredValue := Updates[i].Value;
+        Changed := (not FData.ContainsKey(Updates[i].Key)) or (FData[Updates[i].Key] <> StoredValue);
+        if Changed then
+          ChangedUpdates.Add(TPair<string, Variant>.Create(Updates[i].Key, StoredValue));
       end;
+
+      // Second pass: apply all changes and record them
+      for i := 0 to ChangedUpdates.Count - 1 do
+      begin
+        FData.AddOrSetValue(ChangedUpdates[i].Key, ChangedUpdates[i].Value);
+        AddChange(ChangedUpdates[i].Key, ChangedUpdates[i].Value, SourceId);
+        TSeqLogger.Logger.Log(Information, 'Store: Batch value changed key={Key} value={Value} source={Source}',
+          ['Key', ChangedUpdates[i].Key, 'Value', VarToStr(ChangedUpdates[i].Value), 'Source', SourceId]);
+      end;
+
+      // Hold the lock while notifying to ensure atomic update
+      if Assigned(FOnValueChanged) and (ChangedUpdates.Count > 0) then
+        for i := 0 to ChangedUpdates.Count - 1 do
+          FOnValueChanged(Self, ChangedUpdates[i].Key, ChangedUpdates[i].Value, SourceId);
+    finally
+      FDataLock.Release;
     end;
   finally
-    FDataLock.Release;
+    ChangedUpdates.Free;
   end;
-
-  // Notify changes outside the lock
-  if Assigned(FOnValueChanged) then
-    for i := 0 to High(Updates) do
-      FOnValueChanged(Self, Updates[i].Key, StoredValue, SourceId);
 end;
 
 procedure TDictionaryKeyValueStore.GetAll(var Output: TArray<TPair<string, variant>>);
